@@ -81,7 +81,7 @@ def show_players(game):
     return jsonify(players=players)
 
 
-@app.route("/game/<game>/rounds/<round_number>/players/<player>/hand")
+@app.route("/game/<game>/rounds/<int:round_number>/players/<player>/hand")
 def show_hand(game, round_number, player):
     require_ticket_for(player)
 
@@ -92,7 +92,7 @@ def show_hand(game, round_number, player):
     return jsonify(cards=list(hand))
 
 
-@app.route("/game/<game>/rounds/<round_number>/players/<player>/passed_cards",
+@app.route("/game/<game>/rounds/<int:round_number>/players/<player>/passed_cards",
            methods=["GET", "POST"])
 def passed_cards(game, round_number, player):
     if request.method == "GET":
