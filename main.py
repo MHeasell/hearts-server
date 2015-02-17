@@ -86,7 +86,7 @@ def show_hand(game, round_number, player):
     require_ticket_for(player)
 
     hand = redis.smembers(hand_key(game, round_number, player))
-    if hand is None:
+    if hand is None or len(hand) == 0:
         abort(404)
 
     return jsonify(cards=list(hand))
@@ -132,9 +132,9 @@ def passed_cards(game, round_number, player):
             player,
             "passed_cards")
 
-        cards = redis.lrange(our_passed_cards_key, 0, -1)
+        cards = redis.smembers(our_passed_cards_key)
 
-        if cards is None:
+        if cards is None or len(cards) == 0:
             abort(404)
 
         return jsonify(cards=list(cards))
