@@ -9,6 +9,8 @@ from util import *
 
 from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
 
+import json
+
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -215,6 +217,79 @@ def passed_cards(game, round_number, player):
                     continue
 
         return jsonify(success=True)
+
+
+@app.route("/game/<game>/rounds/<int:round_number>/piles/<int:pile_number>", methods=["GET", "POST"])
+def show_pile(game, round_number, pile_number):
+
+    pile_key = redis_key("game", game, "rounds", round_number, "piles", pile_number)
+
+    if request.method == "GET":
+        cards = redis.lrange(pile_key, 0, -1)
+        cards = map(lambda x: json.loads(x), cards)
+
+        return jsonify(cards=cards)
+
+    elif request.method == "POST":
+        player = request.form["player"]
+        card = request.form["card"]
+
+        require_ticket_for(player)
+
+        # TODO: check that this player is allowed to play now.
+        # i.e. it is their turn to play.
+        # And also that the round/pile exists and stuff.
+
+        # TODO: also actually check the game rules
+        # to make sure that the move is legal!
+
+        with redis.pipeline() as pipe:
+            while True:
+                try:
+                    player_hand_key = hand_key(game, round_number, player)
+                    passed_cards_key = redis_key(
+                        "game",
+                        game,
+                        "rounds",
+                        round_number,
+                        "players",
+                        player,
+                        "passed_cards"
+                    )
+
+                    pipe.watch(player_hand_key)
+                    pipe.watch(passed_cards_key)
+                    hand = pipe.smembers(player_hand_key)
+                    received_cards = pipe.smembers(passed_cards_key)
+
+                    # check that the card is in their hand
+                    if card not in hand and card not in received_cards:
+                        abort(409)
+
+                    blob = json.dumps({"player": player, "card": card})
+
+                    pipe.multi()
+                    pipe.srem(player_hand_key, card)
+                    pipe.srem(passed_cards_key, card)
+                    pipe.rpush(pile_key, blob)
+                    pipe.execute()
+
+                    return jsonify(success=True)
+                except WatchError:
+                    continue
+
+
+@app.route("/game/<game>/rounds/<int:round_number>/piles/<int:pile_number>/<int:card_number>")
+def show_pile_card(game, round_number, pile_number, card_number):
+    pile_key = redis_key("game", game, "rounds", round_number, "piles", pile_number)
+
+    card_json = redis.lindex(pile_key, card_number - 1)
+    if card_json is None:
+        abort(404)
+
+    card_data = json.loads(card_json)
+
+    return jsonify(**card_data)
 
 
 if __name__ == "__main__":
