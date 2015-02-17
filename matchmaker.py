@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from random import shuffle
 
-from util import get_status_key, STATUS_QUEUING, STATUS_IN_GAME, DECK
+from util import get_status_key, redis_key, STATUS_QUEUING, STATUS_IN_GAME, DECK
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
 
@@ -63,10 +63,12 @@ def create_game(players):
         for player in players:
             status_key = get_status_key(player)
             pipe.set(status_key, STATUS_IN_GAME)
-            pipe.set("player:" + player + ":current_game", game_id)
+            pipe.set(redis_key("player", player, "current_game"), game_id)
 
         for (player, hand) in zip(players, hands):
-            pipe.sadd("game:" + game_id + ":players:" + player + ":hand", *hand)
+            pipe.sadd(
+                redis_key("game", game_id, "players", player, "hand"),
+                *hand)
 
         pipe.rpush("game:" + game_id + ":players", *players)
 
