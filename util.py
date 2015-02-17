@@ -50,6 +50,7 @@ def hand_key(game_id, round_number, player):
 
 
 def redis_key(*args):
+    args = map(str, args)
     args = map(lambda x: x.replace("\\", "\\\\"), args)
     args = map(lambda x: x.replace(":", "\\:"), args)
     return ":".join(args)
