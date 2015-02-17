@@ -3,27 +3,11 @@ from redis import StrictRedis, WatchError
 
 from uuid import uuid4
 
-from random import shuffle
+from util import get_status_key, redis_key, STATUS_IN_GAME
 
-from util import get_status_key, redis_key, STATUS_QUEUING, STATUS_IN_GAME, DECK
+from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY, GAME_EVENTS_QUEUE_KEY
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
-
-def deal_hands():
-    deck_copy = DECK[:]
-    shuffle(deck_copy)
-
-    hands = [
-        deck_copy[:13],
-        deck_copy[13:26],
-        deck_copy[26:39],
-        deck_copy[39:52]]
-
-    return hands
-
-QUEUE_KEY = "free_players"
-
-QUEUE_CHANNEL_KEY = "free_players_channel"
 
 
 def try_get_players():
@@ -50,7 +34,6 @@ def try_get_players():
 def create_game(players):
     # we got four players, lets create the game
     game_id = str(uuid4())
-    hands = deal_hands()
 
     # update the players in redis
     with redis.pipeline() as pipe:
@@ -58,19 +41,18 @@ def create_game(players):
         # TODO: check that the players are still in queuing state
         # before putting them into the game
 
-        pipe.multi()
-
+        # update player state to mark them as in this game
         for player in players:
             status_key = get_status_key(player)
             pipe.set(status_key, STATUS_IN_GAME)
             pipe.set(redis_key("player", player, "current_game"), game_id)
 
-        for (player, hand) in zip(players, hands):
-            pipe.sadd(
-                redis_key("game", game_id, "players", player, "hand"),
-                *hand)
+        # add the players to the game's player list
+        pipe.rpush(redis_key("game", game_id, "players"), *players)
 
-        pipe.rpush("game:" + game_id + ":players", *players)
+        # put an init event in the queue
+        # so that a dealer will set up this game
+        pipe.lpush(GAME_EVENTS_QUEUE_KEY, ",".join(["init", game_id]))
 
         pipe.execute()
 
@@ -107,5 +89,3 @@ if __name__ == "__main__":
     for message in p.listen():
         print "Got message."
         consume_queue()
-
-

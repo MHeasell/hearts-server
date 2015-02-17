@@ -7,9 +7,8 @@ from uuid import uuid4
 
 from util import *
 
-QUEUE_KEY = "free_players"
+from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
 
-QUEUE_CHANNEL_KEY = "free_players_channel"
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -82,20 +81,20 @@ def show_players(game):
     return jsonify(players=players)
 
 
-@app.route("/game/<game>/players/<player>/hand")
-def show_hand(game, player):
+@app.route("/game/<game>/rounds/<round_number>/players/<player>/hand")
+def show_hand(game, round_number, player):
     require_ticket_for(player)
 
-    hand = redis.smembers(redis_key("game", game, "players", player, "hand"))
+    hand = redis.smembers(hand_key(game, round_number, player))
     if hand is None:
         abort(404)
 
     return jsonify(cards=list(hand))
 
 
-@app.route("/game/<game>/players/<player>/passed_cards",
+@app.route("/game/<game>/rounds/<round_number>/players/<player>/passed_cards",
            methods=["GET", "POST"])
-def passed_cards(game, player):
+def passed_cards(game, round_number, player):
     if request.method == "GET":
         require_ticket_for(player)
 
@@ -107,18 +106,33 @@ def passed_cards(game, player):
             abort(403)
             return  # won't be reached, but needed to suppress IDE warning
 
+        # TODO: consider the round number when deciding who to pass to
         target_index = (player_index + 1) % 4
         target = players[target_index]
 
         target_passed_cards_key = redis_key(
-            "game", game, "players", target, "passed_cards")
+            "game",
+            game,
+            "rounds",
+            round_number,
+            "players",
+            target,
+            "passed_cards")
 
         # forbid access if their target doesn't have their cards yet
         if redis.scard(target_passed_cards_key) == 0:
             abort(403)
 
-        cards = redis.lrange(
-            redis_key("game", game, "players", player, "passed_cards"), 0, -1)
+        our_passed_cards_key = redis_key(
+            "game",
+            game,
+            "rounds",
+            round_number,
+            "players",
+            player,
+            "passed_cards")
+
+        cards = redis.lrange(our_passed_cards_key, 0, -1)
 
         if cards is None:
             abort(404)
@@ -141,6 +155,7 @@ def passed_cards(game, player):
 
         # figure out whether the requester is allowed to pass
         # to this player
+        # TODO: consider round number when checking this
         allowed_index = (requester_index + 1) % 4
         if allowed_index != player_index:
             abort(403)
@@ -155,9 +170,22 @@ def passed_cards(game, player):
             while True:
                 try:
                     requester_hand_key = redis_key(
-                        "game", game, "players", requester, "hand")
+                        "game",
+                        game,
+                        "rounds",
+                        round_number,
+                        "players",
+                        requester,
+                        "hand")
+
                     target_passed_cards_key = redis_key(
-                        "game", game, "players", player, "passed_cards")
+                        "game",
+                        game,
+                        "rounds",
+                        round_number,
+                        "players",
+                        player,
+                        "passed_cards")
 
                     # Make sure the cards don't change while we're doing this
                     pipe.watch(requester_hand_key)
