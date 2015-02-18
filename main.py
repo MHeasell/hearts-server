@@ -11,6 +11,8 @@ from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
 
 import json
 
+import game as game_module
+
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -76,8 +78,8 @@ def show_queue_status(player):
 
 @app.route("/game/<game>/players")
 def show_players(game):
-    players = redis.lrange(redis_key("game", game, "players"), 0, -1)
-    if players is None:
+    players = game_module.get_players(redis, game)
+    if players is None or len(players) == 0:
         abort(404)
 
     return jsonify(players=players)
@@ -87,7 +89,7 @@ def show_players(game):
 def show_hand(game, round_number, player):
     require_ticket_for(player)
 
-    hand = redis.smembers(hand_key(game, round_number, player))
+    hand = game_module.get_hand(redis, game, round_number, player)
     if hand is None or len(hand) == 0:
         abort(404)
 
@@ -101,7 +103,7 @@ def passed_cards(game, round_number, player):
         require_ticket_for(player)
 
         # figure out who this person should have passed to
-        players = redis.lrange(redis_key("game", game, "players"), 0, -1)
+        players = game_module.get_players(redis, game)
         try:
             player_index = players.index(player)
         except ValueError:
@@ -112,29 +114,11 @@ def passed_cards(game, round_number, player):
         target_index = (player_index + 1) % 4
         target = players[target_index]
 
-        target_passed_cards_key = redis_key(
-            "game",
-            game,
-            "rounds",
-            round_number,
-            "players",
-            target,
-            "passed_cards")
-
         # forbid access if their target doesn't have their cards yet
-        if redis.scard(target_passed_cards_key) == 0:
+        if not game_module.has_received_cards(redis, game, round_number, target):
             abort(403)
 
-        our_passed_cards_key = redis_key(
-            "game",
-            game,
-            "rounds",
-            round_number,
-            "players",
-            player,
-            "passed_cards")
-
-        cards = redis.smembers(our_passed_cards_key)
+        cards = game_module.get_passed_cards(redis, game, round_number, player)
 
         if cards is None or len(cards) == 0:
             abort(404)
@@ -147,7 +131,7 @@ def passed_cards(game, round_number, player):
 
         # figure out the index of both the requester
         # and the target player
-        players = redis.lrange(redis_key("game", game, "players"), 0, -1)
+        players = game_module.get_players(redis, game)
         try:
             requester_index = players.index(requester)
             player_index = players.index(player)
@@ -167,54 +151,16 @@ def passed_cards(game, round_number, player):
         card2 = request.form["card2"]
         card3 = request.form["card3"]
 
-        # try to transfer the cards
-        with redis.pipeline() as pipe:
-            while True:
-                try:
-                    requester_hand_key = redis_key(
-                        "game",
-                        game,
-                        "rounds",
-                        round_number,
-                        "players",
-                        requester,
-                        "hand")
-
-                    target_passed_cards_key = redis_key(
-                        "game",
-                        game,
-                        "rounds",
-                        round_number,
-                        "players",
-                        player,
-                        "passed_cards")
-
-                    # Make sure the cards don't change while we're doing this
-                    pipe.watch(requester_hand_key)
-                    pipe.watch(target_passed_cards_key)
-
-                    # check that the target player has not already
-                    # been given cards
-                    if pipe.scard(target_passed_cards_key) != 0:
-                        abort(409)
-
-                    # check that the cards are in the requester's hand
-                    for c in card1, card2, card3:
-                        if not pipe.sismember(requester_hand_key, c):
-                            abort(409)
-
-                    pipe.multi()
-                    # remove the cards from the requester's hand
-                    pipe.srem(requester_hand_key, card1, card2, card3)
-
-                    # add the cards to the target's passed cards collection
-                    pipe.sadd(target_passed_cards_key, card1, card2, card3)
-                    pipe.execute()
-
-                    break
-
-                except WatchError:
-                    continue
+        try:
+            game_module.pass_cards(
+                redis,
+                game,
+                round_number,
+                requester,
+                player,
+                [card1, card2, card3])
+        except game_module.GameStateError:
+            abort(409)
 
         return jsonify(success=True)
 
@@ -243,40 +189,12 @@ def show_pile(game, round_number, pile_number):
         # TODO: also actually check the game rules
         # to make sure that the move is legal!
 
-        with redis.pipeline() as pipe:
-            while True:
-                try:
-                    player_hand_key = hand_key(game, round_number, player)
-                    passed_cards_key = redis_key(
-                        "game",
-                        game,
-                        "rounds",
-                        round_number,
-                        "players",
-                        player,
-                        "passed_cards"
-                    )
+        try:
+            game_module.play_card(redis, game, round_number, pile_number, player)
+        except game_module.GameStateError:
+            abort(409)
 
-                    pipe.watch(player_hand_key)
-                    pipe.watch(passed_cards_key)
-                    hand = pipe.smembers(player_hand_key)
-                    received_cards = pipe.smembers(passed_cards_key)
-
-                    # check that the card is in their hand
-                    if card not in hand and card not in received_cards:
-                        abort(409)
-
-                    blob = json.dumps({"player": player, "card": card})
-
-                    pipe.multi()
-                    pipe.srem(player_hand_key, card)
-                    pipe.srem(passed_cards_key, card)
-                    pipe.rpush(pile_key, blob)
-                    pipe.execute()
-
-                    return jsonify(success=True)
-                except WatchError:
-                    continue
+        return jsonify(success=True)
 
 
 @app.route("/game/<game>/rounds/<int:round_number>/piles/<int:pile_number>/<int:card_number>")
