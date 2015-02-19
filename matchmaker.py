@@ -1,11 +1,11 @@
 
-from redis import StrictRedis, WatchError
-
 from uuid import uuid4
 
-from util import get_status_key, redis_key, STATUS_IN_GAME
+from redis import StrictRedis, WatchError
 
-from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY, GAME_EVENTS_QUEUE_KEY
+from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
+
+from game import create_game
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
 
@@ -31,32 +31,6 @@ def try_get_players():
                 continue
 
 
-def create_game(players):
-    # we got four players, lets create the game
-    game_id = str(uuid4())
-
-    # update the players in redis
-    with redis.pipeline() as pipe:
-
-        # TODO: check that the players are still in queuing state
-        # before putting them into the game
-
-        # update player state to mark them as in this game
-        for player in players:
-            status_key = get_status_key(player)
-            pipe.set(status_key, STATUS_IN_GAME)
-            pipe.set(redis_key("player", player, "current_game"), game_id)
-
-        # add the players to the game's player list
-        pipe.rpush(redis_key("game", game_id, "players"), *players)
-
-        # put an init event in the queue
-        # so that a dealer will set up this game
-        pipe.lpush(GAME_EVENTS_QUEUE_KEY, ",".join(["init", game_id]))
-
-        pipe.execute()
-
-
 def try_process_queue():
     print "Trying to fetch players..."
     players = try_get_players()
@@ -66,8 +40,10 @@ def try_process_queue():
         return False
 
     print "Four players found, creating game."
-    create_game(players)
+    game_id = str(uuid4())
+    create_game(redis, game_id, players)
     return True
+
 
 def consume_queue():
     while try_process_queue():

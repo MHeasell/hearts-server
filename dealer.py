@@ -1,9 +1,11 @@
 
-from redis import StrictRedis, WatchError
+from redis import StrictRedis
 
-from util import deal_hands, redis_key, hand_key
+from util import deal_hands
 
 from keys import GAME_EVENTS_QUEUE_KEY
+
+from game import GameService
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
 
@@ -12,27 +14,23 @@ def process_init_event(game_id):
     print "processing init for game " + game_id
 
     # start the first round
-    redis.lpush(GAME_EVENTS_QUEUE_KEY, ",".join("start_round", game_id, 1))
+    redis.lpush(GAME_EVENTS_QUEUE_KEY, ",".join(["start_round", game_id, "1"]))
 
 
 def process_start_round_event(game_id, round_id):
     print "processing round " + round_id + " start for game " + game_id
 
+    game_svc = GameService(redis, game_id)
+    round_svc = game_svc.get_round_service(round_id)
+
+    players = game_svc.get_players()
+
     # deal everyone's hand
     hands = deal_hands()
+    round_svc.set_hands(players, hands)
 
-    players_key = redis_key("game", game_id, "players")
-    players = redis.lrange(players_key, 0, -1)
-
-    with redis.pipeline() as pipe:
-        # set everyone's hand
-        for (player, hand) in zip(players, hands):
-            pipe.sadd(hand_key(game_id, round_id, player), *hand)
-
-        # set the current round
-        pipe.set(redis_key("game", game_id, "current_round"), round_id)
-
-        pipe.execute()
+    # set the current round
+    game_svc.set_current_round(round_id)
 
 
 def process_end_round_event(game_id, round_id):

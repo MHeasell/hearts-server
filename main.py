@@ -11,7 +11,7 @@ from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
 
 import json
 
-import game as game_module
+from game import GameService, GameRoundService, GameStateError
 
 
 app = Flask(__name__)
@@ -78,7 +78,9 @@ def show_queue_status(player):
 
 @app.route("/game/<game>/players")
 def show_players(game):
-    players = game_module.get_players(redis, game)
+    svc = GameService(redis, game)
+    players = svc.get_players()
+
     if players is None or len(players) == 0:
         abort(404)
 
@@ -89,7 +91,9 @@ def show_players(game):
 def show_hand(game, round_number, player):
     require_ticket_for(player)
 
-    hand = game_module.get_hand(redis, game, round_number, player)
+    svc = GameRoundService(redis, game, round_number)
+    hand = svc.get_hand(player)
+
     if hand is None or len(hand) == 0:
         abort(404)
 
@@ -99,26 +103,42 @@ def show_hand(game, round_number, player):
 @app.route("/game/<game>/rounds/<int:round_number>/players/<player>/passed_cards",
            methods=["GET", "POST"])
 def passed_cards(game, round_number, player):
+
+    game_svc = GameService(redis, game)
+    round_svc = game_svc.get_round_service(round_number)
+
     if request.method == "GET":
         require_ticket_for(player)
 
         # figure out who this person should have passed to
-        players = game_module.get_players(redis, game)
+        players = game_svc.get_players()
         try:
             player_index = players.index(player)
         except ValueError:
             abort(403)
             return  # won't be reached, but needed to suppress IDE warning
 
-        # TODO: consider the round number when deciding who to pass to
-        target_index = (player_index + 1) % 4
-        target = players[target_index]
+        pass_direction = round_svc.get_pass_direction()
+        if pass_direction == "none":
+            return jsonify(cards=[])
+
+        if pass_direction == "left":
+            target_offset = 1
+        elif pass_direction == "across":
+            target_offset = 2
+        elif pass_direction == "right":
+            target_offset = 3
+        else:
+            raise Exception("unrecognised pass direction: " + pass_direction)
+
+        target_index = (player_index + target_offset) % 4
+        target_name = players[target_index]
 
         # forbid access if their target doesn't have their cards yet
-        if not game_module.has_received_cards(redis, game, round_number, target):
+        if not round_svc.has_received_cards(target_name):
             abort(403)
 
-        cards = game_module.get_passed_cards(redis, game, round_number, player)
+        cards = round_svc.get_passed_cards(player)
 
         if cards is None or len(cards) == 0:
             abort(404)
@@ -131,7 +151,7 @@ def passed_cards(game, round_number, player):
 
         # figure out the index of both the requester
         # and the target player
-        players = game_module.get_players(redis, game)
+        players = game_svc.get_players()
         try:
             requester_index = players.index(requester)
             player_index = players.index(player)
@@ -152,14 +172,8 @@ def passed_cards(game, round_number, player):
         card3 = request.form["card3"]
 
         try:
-            game_module.pass_cards(
-                redis,
-                game,
-                round_number,
-                requester,
-                player,
-                [card1, card2, card3])
-        except game_module.GameStateError:
+            round_svc.pass_cards(requester, player, [card1, card2, card3])
+        except GameStateError:
             abort(409)
 
         return jsonify(success=True)
@@ -168,10 +182,10 @@ def passed_cards(game, round_number, player):
 @app.route("/game/<game>/rounds/<int:round_number>/piles/<int:pile_number>", methods=["GET", "POST"])
 def show_pile(game, round_number, pile_number):
 
-    pile_key = redis_key("game", game, "rounds", round_number, "piles", pile_number)
+    svc = GameRoundService(redis, game, round_number)
 
     if request.method == "GET":
-        cards = redis.lrange(pile_key, 0, -1)
+        cards = svc.get_pile(pile_number)
         cards = map(lambda x: json.loads(x), cards)
 
         return jsonify(cards=cards)
@@ -190,8 +204,8 @@ def show_pile(game, round_number, pile_number):
         # to make sure that the move is legal!
 
         try:
-            game_module.play_card(redis, game, round_number, pile_number, player)
-        except game_module.GameStateError:
+            svc.play_card(pile_number, player, card)
+        except GameStateError:
             abort(409)
 
         return jsonify(success=True)
@@ -199,9 +213,9 @@ def show_pile(game, round_number, pile_number):
 
 @app.route("/game/<game>/rounds/<int:round_number>/piles/<int:pile_number>/<int:card_number>")
 def show_pile_card(game, round_number, pile_number, card_number):
-    pile_key = redis_key("game", game, "rounds", round_number, "piles", pile_number)
+    svc = GameRoundService(redis, game, round_number)
 
-    card_json = redis.lindex(pile_key, card_number - 1)
+    card_json = svc.get_pile_card(pile_number, card_number)
     if card_json is None:
         abort(404)
 

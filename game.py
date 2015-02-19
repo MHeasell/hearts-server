@@ -1,8 +1,6 @@
 from redis import WatchError
 
-from uuid import uuid4
-
-from util import get_status_key, STATUS_IN_GAME, redis_key, hand_key
+from util import get_status_key, STATUS_IN_GAME, redis_key
 
 from keys import GAME_EVENTS_QUEUE_KEY
 
@@ -18,10 +16,7 @@ class GameStateError(Exception):
         self.message = msg
 
 
-def create_game(redis, players):
-    # we got four players, lets create the game
-    game_id = str(uuid4())
-
+def create_game(redis, game_id, players):
     # update the players in redis
     with redis.pipeline() as pipe:
 
@@ -44,186 +39,174 @@ def create_game(redis, players):
         pipe.execute()
 
 
-def get_players(redis, game_id):
-    """
-    Fetches the list of players for the given game.
-    :param redis: A Redis database connection.
-    :param game_id: The ID of the game to get players for.
-    :return: The list of players.
-    If the game does not exist, the list will be empty.
-    """
-    return redis.lrange(redis_key("game", game_id, "players"), 0, -1)
+class GameService(object):
+
+    def __init__(self, redis, game_id):
+        self.id = game_id
+        self.redis = redis
+
+    def get_players(self):
+        """
+        Fetches the list of players for the game.
+        :return: The list of players.
+        If the game does not exist, the list will be empty.
+        """
+        return self.redis.lrange(redis_key("game", self.id, "players"), 0, -1)
+
+    def set_current_round(self, round_number):
+        key = redis_key("game", self.id, "current_round")
+        self.redis.set(key, round_number)
+
+    def get_round_service(self, round_number):
+        return GameRoundService(self.redis, self.id, round_number)
 
 
-def get_hand(redis, game_id, round_number, player_name):
-    """
-    Fetches the set of cards in the player's hand.
-    :param redis: A Redis database connection.
-    :param game_id: The ID of the game.
-    :param round_number: The number of the round.
-    :param player_name: The name of the player whose hand we should fetch.
-    :return: A set instance containing the cards in the hand.
-    """
-    return redis.smembers(hand_key(game_id, round_number, player_name))
+class GameRoundService(object):
+    def __init__(self, redis, game_id, round_number):
+        self.redis = redis
+        self.game_id = game_id
+        self.round_number = round_number
 
+    def set_hands(self, players, hands):
+        with self.redis.pipeline() as pipe:
+            # set everyone's hand
+            for (player, hand) in zip(players, hands):
+                pipe.sadd(self._hand_key(player), *hand)
 
-def is_in_hand(redis, game_id, round_number, player_name, card):
-    return redis.sismember(hand_key(game_id, round_number, player_name), card)
+            pipe.execute()
 
+    def get_hand(self, player_name):
+        """
+        Fetches the set of cards in the player's hand.
+        :param player_name: The name of the player whose hand we should fetch.
+        :return: A set instance containing the cards in the hand.
+        """
+        key = self._hand_key(player_name)
+        return self.redis.smembers(key)
 
-def is_in_received_cards(redis, game_id, round_number, player_name, card):
-    passed_cards_key = redis_key(
-        "game",
-        game_id,
-        "rounds",
-        round_number,
-        "players",
-        player_name,
-        "passed_cards")
-    return redis.sismember(passed_cards_key, card)
+    def get_pass_direction(self):
+        dirs = ["left", "across", "right", "none"]
+        index = (self.round_number - 1) % 4
+        return dirs[index]
 
+    def has_received_cards(self, player_name):
+        if self.get_pass_direction() == "none":
+            return True
 
-def get_pass_target(redis, game_id, round_number, player_name):
-    # Find the index of this player.
-    players = redis.lrange(redis_key("game", game_id, "players"), 0, -1)
+        key = self._received_cards_key(player_name)
 
-    # this will raise ValueError if the player does not exist
-    player_index = players.index(player_name)
+        return self.redis.scard(key) > 0
 
-    # Figure out the name of the player they should have passed to.
-    # TODO: consider the round number when deciding who to pass to
-    target_index = (player_index + 1) % 4
-    target_name = players[target_index]
+    def get_passed_cards(self, player_name):
+        """
+        Fetches the cards that this player was passed.
+        Returns empty set if there are no cards yet.
+        :param player_name: The name of the player.
+        :return: The set of passed cards.
+        """
+        key = self._received_cards_key(player_name)
+        return self.redis.smembers(key)
 
-    target_passed_cards_key = redis_key(
-        "game",
-        game_id,
-        "rounds",
-        round_number,
-        "players",
-        target_name,
-        "passed_cards")
+    def pass_cards(self, from_player, to_player, cards):
+        requester_hand_key = self._hand_key(from_player)
+        target_passed_cards_key = self._received_cards_key(to_player)
 
+        with self.redis.pipeline() as pipe:
+            while True:
+                try:
+                    # Make sure the cards don't change while we're doing this
+                    pipe.watch(requester_hand_key)
+                    pipe.watch(target_passed_cards_key)
 
-def has_received_cards(redis, game_id, round_number, player_name):
-    passed_cards_key = redis_key(
-        "game",
-        game_id,
-        "rounds",
-        round_number,
-        "players",
-        player_name,
-        "passed_cards")
-    return redis.scard(passed_cards_key) > 0
+                    # check that the target player has not already
+                    # been given cards
+                    if pipe.scard(target_passed_cards_key) != 0:
+                        err = "Player {0} has already been passed cards."
+                        raise GameStateError(err.format(to_player))
 
+                    # check that the cards are in the requester's hand
+                    for c in cards:
+                        if not pipe.sismember(requester_hand_key, c):
+                            err = "{0}'s hand does not contain card {1}."
+                            raise GameStateError(err.format(from_player, c))
 
-def get_passed_cards(redis, game_id, round_number, player_name):
-    """
-    Fetches the cards that this player was passed.
-    Returns empty set if there are no cards yet.
-    :param redis: A redis connection.
-    :param game_id: The ID of the game.
-    :param round_number: The round number.
-    :param player_name: The name of the player.
-    :return: The set of passed cards.
+                    pipe.multi()
 
-    """
-    our_passed_cards_key = redis_key(
-        "game",
-        game_id,
-        "rounds",
-        round_number,
-        "players",
-        player_name,
-        "passed_cards")
+                    # remove the cards from the requester's hand
+                    pipe.srem(requester_hand_key, *cards)
 
-    return redis.smembers(our_passed_cards_key)
+                    # add the cards to the target's passed cards collection
+                    pipe.sadd(target_passed_cards_key, *cards)
 
+                    pipe.execute()
 
-def pass_cards(redis, game_id, round_number, from_player, to_player, cards):
-    with redis.pipeline() as pipe:
-        while True:
-            try:
-                requester_hand_key = redis_key(
-                    "game",
-                    game_id,
-                    "rounds",
-                    round_number,
-                    "players",
-                    from_player,
-                    "hand")
+                    break
 
-                target_passed_cards_key = redis_key(
-                    "game",
-                    game_id,
-                    "rounds",
-                    round_number,
-                    "players",
-                    to_player,
-                    "passed_cards")
+                except WatchError:
+                    continue
 
-                # Make sure the cards don't change while we're doing this
-                pipe.watch(requester_hand_key)
-                pipe.watch(target_passed_cards_key)
+    def play_card(self, pile_number, player, card):
+        pile_key = self._pile_key(pile_number)
+        player_hand_key = self._hand_key(player)
+        passed_cards_key = self._received_cards_key(player)
 
-                # check that the target player has not already
-                # been given cards
-                if pipe.scard(target_passed_cards_key) != 0:
-                    err = "Player {0} has already been passed cards."
-                    raise GameStateError(err.format(to_player))
+        with self.redis.pipeline() as pipe:
+            while True:
+                try:
+                    pipe.watch(player_hand_key)
+                    pipe.watch(passed_cards_key)
 
-                # check that the cards are in the requester's hand
-                for c in cards:
-                    if not is_in_hand(pipe, game_id, round_number, from_player, c):
+                    if not pipe.sismember(player_hand_key, card) \
+                            and not pipe.sismember(passed_cards_key, card):
                         err = "{0}'s hand does not contain card {1}."
-                        raise GameStateError(err.format(from_player, c))
+                        raise GameStateError(err.format(player, card))
 
-                pipe.multi()
-                # remove the cards from the requester's hand
-                pipe.srem(requester_hand_key, *cards)
+                    blob = json.dumps({"player": player, "card": card})
 
-                # add the cards to the target's passed cards collection
-                pipe.sadd(target_passed_cards_key, *cards)
-                pipe.execute()
+                    pipe.multi()
+                    pipe.srem(player_hand_key, card)
+                    pipe.srem(passed_cards_key, card)
+                    pipe.rpush(pile_key, blob)
+                    pipe.execute()
 
-                break
+                    break
 
-            except WatchError:
-                continue
+                except WatchError:
+                    continue
 
+    def get_pile(self, pile_number):
+        key = self._pile_key(pile_number)
+        return self.redis.lrange(key, 0, -1)
 
-def play_card(redis, game_id, round_number, pile_number, player, card):
-    pile_key = redis_key("game", game_id, "rounds", round_number, "piles", pile_number)
+    def get_pile_card(self, pile_number, card_number):
+        key = self._pile_key(pile_number)
+        return self.redis.lindex(key, card_number - 1)
 
-    with redis.pipeline() as pipe:
-        while True:
-            try:
-                player_hand_key = hand_key(game_id, round_number, player)
-                passed_cards_key = redis_key(
-                    "game",
-                    game_id,
-                    "rounds",
-                    round_number,
-                    "players",
-                    player,
-                    "passed_cards"
-                )
+    def _pile_key(self, pile_number):
+        return redis_key(
+            "game",
+            self.game_id,
+            "rounds",
+            self.round_number,
+            "piles",
+            pile_number)
 
-                pipe.watch(player_hand_key)
-                pipe.watch(passed_cards_key)
+    def _hand_key(self, player):
+        return redis_key(
+            "game",
+            self.game_id,
+            "rounds",
+            self.round_number,
+            "players",
+            player,
+            "hand")
 
-                if not is_in_hand(pipe, game_id, round_number, player, card) \
-                        and not is_in_received_cards(pipe, game_id, round_number, player, card):
-                    err = "{0}'s hand does not contain card {1}."
-                    raise GameStateError(err.format(player, card))
-
-                blob = json.dumps({"player": player, "card": card})
-
-                pipe.multi()
-                pipe.srem(player_hand_key, card)
-                pipe.srem(passed_cards_key, card)
-                pipe.rpush(pile_key, blob)
-                pipe.execute()
-
-            except WatchError:
-                continue
+    def _received_cards_key(self, player):
+        return redis_key(
+            "game",
+            self.game_id,
+            "rounds",
+            self.round_number,
+            "players",
+            player,
+            "passed_cards")

@@ -28,7 +28,7 @@ def deal_hands():
 
 
 def get_status_key(player):
-    return "player:" + player + ":status"
+    return redis_key("player", player, "status")
 
 
 def is_card(identifier):
@@ -37,16 +37,6 @@ def is_card(identifier):
 
 def ticket_key(ticket_id):
     return redis_key("ticket", ticket_id)
-
-def hand_key(game_id, round_number, player):
-    return redis_key(
-        "game",
-        game_id,
-        "rounds",
-        round_number,
-        "players",
-        player,
-        "hand")
 
 
 def redis_key(*args):
