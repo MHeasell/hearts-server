@@ -17,6 +17,11 @@ class GameStateError(Exception):
 
 
 def create_game(redis, game_id, players):
+    svc = GameService(redis, game_id)
+
+    # add the players to the game's player list
+    svc.put_players(players)
+
     # update the players in redis
     with redis.pipeline() as pipe:
 
@@ -29,14 +34,11 @@ def create_game(redis, game_id, players):
             pipe.set(status_key, STATUS_IN_GAME)
             pipe.set(redis_key("player", player, "current_game"), game_id)
 
-        # add the players to the game's player list
-        pipe.rpush(redis_key("game", game_id, "players"), *players)
-
-        # put an init event in the queue
-        # so that a dealer will set up this game
-        pipe.lpush(GAME_EVENTS_QUEUE_KEY, ",".join(["init", game_id]))
-
         pipe.execute()
+
+    # put an init event in the queue
+    # so that a dealer will set up this game
+    pipe.lpush(GAME_EVENTS_QUEUE_KEY, ",".join(["init", game_id]))
 
 
 class GameService(object):
@@ -51,7 +53,10 @@ class GameService(object):
         :return: The list of players.
         If the game does not exist, the list will be empty.
         """
-        return self.redis.lrange(redis_key("game", self.id, "players"), 0, -1)
+        return self.redis.lrange(self._players_key(), 0, -1)
+
+    def put_players(self, players):
+        return self.redis.rpush(self._players_key(), *players)
 
     def set_current_round(self, round_number):
         key = redis_key("game", self.id, "current_round")
@@ -59,6 +64,9 @@ class GameService(object):
 
     def get_round_service(self, round_number):
         return GameRoundService(self.redis, self.id, round_number)
+
+    def _players_key(self):
+        return redis_key("game", self.id, "players")
 
 
 class GameRoundService(object):
