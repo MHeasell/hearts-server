@@ -21,8 +21,19 @@ class GameEventQueueService(object):
     def __init__(self, redis):
         self.redis = redis
 
+    def blocking_pop_event(self):
+        elem = self.redis.brpop([GAME_EVENTS_QUEUE_KEY])[1]
+        params = elem.split(",")
+        return params
+
     def raise_init_event(self, game_id):
-        self.redis.rpush(GAME_EVENTS_QUEUE_KEY, ",".join(["init", game_id]))
+        self._raise_event("init", game_id)
+
+    def raise_start_round_event(self, game_id, round_number):
+        self._raise_event("start_round", game_id, round_number)
+
+    def _raise_event(self, *data):
+        self.redis.lpush(GAME_EVENTS_QUEUE_KEY, ",".join(map(str, data)))
 
 
 def _players_key(game_id):
