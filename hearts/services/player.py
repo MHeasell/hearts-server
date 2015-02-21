@@ -30,12 +30,13 @@ class PlayerService(object):
         self.redis = redis
 
     def get_status(self, player):
-        key = redis_key("player", player, "status")
-        return self.redis.get(key)
+        status_key = redis_key("player", player, "status")
+        game_key = redis_key("player", player, "current_game")
 
-    def get_current_game_id(self, player):
-        key = redis_key("player", player, "current_game")
-        return self.redis.get(key)
+        with self.redis.pipeline() as pipe:
+            pipe.get(status_key)
+            pipe.get(game_key)
+            return pipe.execute()
 
     def create_player(self, player):
         player_key = redis_key("player", player)

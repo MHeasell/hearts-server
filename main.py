@@ -66,16 +66,12 @@ def show_queue_status(player):
     require_ticket_for(player)
 
     player_svc = PlayerService(redis)
-    status = player_svc.get_status(player)
+    (status, game_id) = player_svc.get_status(player)
 
     if status == STATUS_QUEUING:
         return jsonify(matched=False)
     elif status == STATUS_IN_GAME:
-        # TODO: fix race condition here
-        # in case status is changed at this point.
-        # I suggest combining status + status data into one key.
-        game = player_svc.get_current_game_id(player)
-        return jsonify(matched=True, link="/game/" + game)
+        return jsonify(matched=True, link="/game/" + game_id)
     else:
         abort(404)
 
