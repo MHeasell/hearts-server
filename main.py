@@ -5,9 +5,9 @@ from redis import StrictRedis
 from flask_cors import CORS
 
 from hearts.util import *
-from hearts.game import GameService, GameRoundService, GameStateError
-from hearts.player import PlayerService, TicketService
-from hearts.queue import QueueService
+from hearts.services.game import GameService, GameRoundService, GameStateError
+from hearts.services.player import PlayerService, TicketService
+from hearts.services.queue import QueueService
 
 
 app = Flask(__name__)

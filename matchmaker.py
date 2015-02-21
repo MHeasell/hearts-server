@@ -1,9 +1,9 @@
 from redis import StrictRedis
 
 from hearts.keys import QUEUE_CHANNEL_KEY
-from hearts.game import GameService, GameEventQueueService
-from hearts.player import PlayerService
-from hearts.queue import QueueService
+from hearts.services.game import GameService, GameEventQueueService
+from hearts.services.player import PlayerService
+from hearts.services.queue import QueueService
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
 
