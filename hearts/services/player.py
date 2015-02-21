@@ -50,9 +50,20 @@ class PlayerService(object):
         status_key = redis_key("player", player, "status")
 
         with self.redis.pipeline() as pipe:
-            pipe.set(player_key, "1")
-            pipe.set(status_key, "idle")
-            pipe.execute()
+            while True:
+                try:
+                    pipe.watch(player_key)
+
+                    if pipe.get(player_key) is not None:
+                        raise PlayerStateError("Player already exists.")
+
+                    pipe.multi()
+                    pipe.set(player_key, "1")
+                    pipe.set(status_key, "idle")
+                    pipe.execute()
+                    break
+                except WatchError:
+                    continue
 
     def set_as_queuing(self, player):
         status_key = redis_key("player", player, "status")

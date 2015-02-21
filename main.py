@@ -6,7 +6,7 @@ from flask_cors import CORS
 
 from hearts.util import *
 from hearts.services.game import GameService, GameRoundService, GameStateError
-from hearts.services.player import PlayerService, TicketService
+from hearts.services.player import PlayerService, TicketService, PlayerStateError
 from hearts.services.queue import QueueService
 
 
@@ -43,14 +43,21 @@ def queue():
     player_svc = PlayerService(redis)
     queue_svc = QueueService(redis)
 
-    if player_svc.player_exists(name):
-        require_ticket_for(name)
-        ticket = request.args["ticket"]
-    else:
+    try:
+        # Assume the player doesn't exist and create them.
         player_svc.create_player(name)
         ticket = ticket_svc.create_ticket_for(name)
+    except PlayerStateError:
+        # They already exist, check if the client has an auth ticket.
+        require_ticket_for(name)
+        ticket = request.args["ticket"]
 
-    player_svc.set_as_queuing(name)
+    # Actually add the player to the queue
+    try:
+        player_svc.set_as_queuing(name)
+    except PlayerStateError:
+        abort(409)
+
     queue_svc.add_player(name)
 
     return jsonify(ticket=ticket)
