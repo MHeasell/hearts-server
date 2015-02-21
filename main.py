@@ -54,11 +54,9 @@ def queue():
 
     # Actually add the player to the queue
     try:
-        player_svc.set_as_queuing(name)
+        queue_svc.add_player(name)
     except PlayerStateError:
         abort(409)
-
-    queue_svc.add_player(name)
 
     return jsonify(ticket=ticket)
 
