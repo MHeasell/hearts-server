@@ -17,9 +17,6 @@ class QueueService(object):
             pipe.publish(QUEUE_CHANNEL_KEY, "player added")
             pipe.execute()
 
-    def contains_player(self, player):
-        return self.redis.zscore(player) is not None
-
     def try_get_players(self, count):
         with self.redis.pipeline() as pipe:
             while True:
