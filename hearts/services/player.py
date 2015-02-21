@@ -37,10 +37,6 @@ class PlayerService(object):
         key = redis_key("player", player, "status")
         return self.redis.get(key)
 
-    def set_status(self, player):
-        key = redis_key("player", player, "status")
-        self.redis.set(key)
-
     def get_current_game_id(self, player):
         key = redis_key("player", player, "current_game")
         return self.redis.get(key)
