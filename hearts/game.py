@@ -78,15 +78,7 @@ class GameRoundService(object):
         key = self._hand_key(player_name)
         return self.redis.smembers(key)
 
-    def get_pass_direction(self):
-        dirs = ["left", "across", "right", "none"]
-        index = (self.round_number - 1) % 4
-        return dirs[index]
-
     def has_received_cards(self, player_name):
-        if self.get_pass_direction() == "none":
-            return True
-
         key = self._received_cards_key(player_name)
 
         return self.redis.scard(key) > 0

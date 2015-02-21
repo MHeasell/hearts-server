@@ -18,6 +18,12 @@ redis = StrictRedis(host='localhost', port=6379, db=0)
 ticket_svc = TicketService(redis)
 
 
+def get_pass_direction(round_number):
+    dirs = ["left", "across", "right", "none"]
+    index = (round_number - 1) % 4
+    return dirs[index]
+
+
 def find_requester_name():
     ticket = request.args.get("ticket", "")
 
@@ -111,7 +117,7 @@ def passed_cards(game, round_number, player):
             abort(403)
             return  # won't be reached, but needed to suppress IDE warning
 
-        pass_direction = round_svc.get_pass_direction()
+        pass_direction = get_pass_direction(round_number)
         if pass_direction == "none":
             return jsonify(cards=[])
 
