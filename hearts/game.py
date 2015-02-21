@@ -1,10 +1,10 @@
+from uuid import uuid4
+import json
+
 from redis import WatchError
 
-from util import redis_key
-
-from keys import GAME_EVENTS_QUEUE_KEY
-
-import json
+from hearts.util import redis_key
+from hearts.keys import GAME_EVENTS_QUEUE_KEY
 
 
 class AccessDeniedError(Exception):
@@ -25,32 +25,34 @@ class GameEventQueueService(object):
         self.redis.rpush(GAME_EVENTS_QUEUE_KEY, ",".join(["init", game_id]))
 
 
+def _players_key(game_id):
+        return redis_key("game", game_id, "players")
+
+
 class GameService(object):
 
-    def __init__(self, redis, game_id):
-        self.id = game_id
+    def __init__(self, redis):
         self.redis = redis
 
     def create_game(self, players):
-        self.redis.rpush(self._players_key(), *players)
+        game_id = str(uuid4())
+        self.redis.rpush(_players_key(game_id), *players)
+        return game_id
 
-    def get_players(self):
+    def get_players(self, game_id):
         """
         Fetches the list of players for the game.
         :return: The list of players.
         If the game does not exist, the list will be empty.
         """
-        return self.redis.lrange(self._players_key(), 0, -1)
+        return self.redis.lrange(_players_key(game_id), 0, -1)
 
-    def set_current_round(self, round_number):
-        key = redis_key("game", self.id, "current_round")
+    def set_current_round(self, game_id, round_number):
+        key = redis_key("game", game_id, "current_round")
         self.redis.set(key, round_number)
 
-    def get_round_service(self, round_number):
-        return GameRoundService(self.redis, self.id, round_number)
-
-    def _players_key(self):
-        return redis_key("game", self.id, "players")
+    def get_round_service(self, game_id, round_number):
+        return GameRoundService(self.redis, game_id, round_number)
 
 
 class GameRoundService(object):

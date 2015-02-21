@@ -1,8 +1,8 @@
+import time
+
 from redis import WatchError
 
-from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
-
-import time
+from hearts.keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
 
 
 class QueueService(object):
@@ -15,6 +15,7 @@ class QueueService(object):
         with self.redis.pipeline() as pipe:
             pipe.zadd(QUEUE_KEY, stamp, player)
             pipe.publish(QUEUE_CHANNEL_KEY, "player added")
+            pipe.execute()
 
     def contains_player(self, player):
         return self.redis.zscore(player) is not None
@@ -34,7 +35,7 @@ class QueueService(object):
                     pipe.multi()
 
                     for player in players:
-                        pipe.zrem(player)
+                        pipe.zrem(QUEUE_KEY, player)
 
                     pipe.execute()
 

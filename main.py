@@ -1,17 +1,13 @@
-from flask import Flask, jsonify, abort, request
-from redis import StrictRedis
-
-from flask_cors import CORS
-
-from util import *
-
 import json
 
-from game import GameService, GameRoundService, GameStateError
+from flask import Flask, jsonify, abort, request
+from redis import StrictRedis
+from flask_cors import CORS
 
-from player import PlayerService, TicketService
-
-from queue import QueueService
+from hearts.util import *
+from hearts.game import GameService, GameRoundService, GameStateError
+from hearts.player import PlayerService, TicketService
+from hearts.queue import QueueService
 
 
 app = Flask(__name__)
@@ -20,6 +16,7 @@ cors = CORS(app)
 redis = StrictRedis(host='localhost', port=6379, db=0)
 
 ticket_svc = TicketService(redis)
+
 
 def find_requester_name():
     ticket = request.args.get("ticket", "")
@@ -47,6 +44,7 @@ def queue():
         player_svc.create_player(name)
         ticket = ticket_svc.create_ticket_for(name)
 
+    player_svc.set_as_queuing(name)
     queue_svc.add_player(name)
 
     return jsonify(ticket=ticket)
@@ -73,8 +71,8 @@ def show_queue_status(player):
 
 @app.route("/game/<game>/players")
 def show_players(game):
-    svc = GameService(redis, game)
-    players = svc.get_players()
+    svc = GameService(redis)
+    players = svc.get_players(game)
 
     if players is None or len(players) == 0:
         abort(404)
@@ -99,14 +97,14 @@ def show_hand(game, round_number, player):
            methods=["GET", "POST"])
 def passed_cards(game, round_number, player):
 
-    game_svc = GameService(redis, game)
-    round_svc = game_svc.get_round_service(round_number)
+    game_svc = GameService(redis)
+    round_svc = game_svc.get_round_service(game, round_number)
 
     if request.method == "GET":
         require_ticket_for(player)
 
         # figure out who this person should have passed to
-        players = game_svc.get_players()
+        players = game_svc.get_players(game)
         try:
             player_index = players.index(player)
         except ValueError:
@@ -146,7 +144,7 @@ def passed_cards(game, round_number, player):
 
         # figure out the index of both the requester
         # and the target player
-        players = game_svc.get_players()
+        players = game_svc.get_players(game)
         try:
             requester_index = players.index(requester)
             player_index = players.index(player)

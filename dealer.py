@@ -1,11 +1,8 @@
-
 from redis import StrictRedis
 
-from util import deal_hands
-
-from keys import GAME_EVENTS_QUEUE_KEY
-
-from game import GameService
+from hearts.util import deal_hands
+from hearts.keys import GAME_EVENTS_QUEUE_KEY
+from hearts.game import GameService
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
 
@@ -20,17 +17,17 @@ def process_init_event(game_id):
 def process_start_round_event(game_id, round_id):
     print "processing round " + round_id + " start for game " + game_id
 
-    game_svc = GameService(redis, game_id)
-    round_svc = game_svc.get_round_service(round_id)
+    game_svc = GameService(redis)
+    round_svc = game_svc.get_round_service(game_id, round_id)
 
-    players = game_svc.get_players()
+    players = game_svc.get_players(game_id)
 
     # deal everyone's hand
     hands = deal_hands()
     round_svc.set_hands(players, hands)
 
     # set the current round
-    game_svc.set_current_round(round_id)
+    game_svc.set_current_round(game_id, round_id)
 
 
 def process_end_round_event(game_id, round_id):

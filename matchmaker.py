@@ -1,30 +1,22 @@
+from redis import StrictRedis
 
-from uuid import uuid4
-
-from redis import StrictRedis, WatchError
-
-from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
-
-from game import GameService, GameEventQueueService
-
-from player import PlayerService
-
-from queue import QueueService
+from hearts.keys import QUEUE_CHANNEL_KEY
+from hearts.game import GameService, GameEventQueueService
+from hearts.player import PlayerService
+from hearts.queue import QueueService
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
 
 
 def create_game(players):
-    game_id = str(uuid4())
-
-    game_svc = GameService(redis, game_id)
+    game_svc = GameService(redis)
 
     player_svc = PlayerService(redis)
 
     game_queue_svc = GameEventQueueService(redis)
 
     # set up the game
-    game_svc.create_game(players)
+    game_id = game_svc.create_game(players)
 
     # change the players' statuses to be in-game
     player_svc.set_as_in_game(game_id, *players)

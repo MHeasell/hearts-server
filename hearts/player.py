@@ -1,8 +1,8 @@
-from util import redis_key, ticket_key, get_status_key, STATUS_IN_GAME, STATUS_QUEUING
-
 from uuid import uuid4
 
 from redis import WatchError
+
+from hearts.util import redis_key, ticket_key, get_status_key, STATUS_IN_GAME, STATUS_QUEUING
 
 
 class PlayerStateError(Exception):
