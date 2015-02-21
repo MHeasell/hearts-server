@@ -29,10 +29,6 @@ class PlayerService(object):
     def __init__(self, redis):
         self.redis = redis
 
-    def player_exists(self, player):
-        key = redis_key("player", player)
-        return self.redis.get(key) is not None
-
     def get_status(self, player):
         key = redis_key("player", player, "status")
         return self.redis.get(key)
