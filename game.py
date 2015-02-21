@@ -1,6 +1,6 @@
 from redis import WatchError
 
-from util import get_status_key, STATUS_IN_GAME, redis_key
+from util import redis_key
 
 from keys import GAME_EVENTS_QUEUE_KEY
 
@@ -16,29 +16,13 @@ class GameStateError(Exception):
         self.message = msg
 
 
-def create_game(redis, game_id, players):
-    svc = GameService(redis, game_id)
+class GameEventQueueService(object):
 
-    # add the players to the game's player list
-    svc.put_players(players)
+    def __init__(self, redis):
+        self.redis = redis
 
-    # update the players in redis
-    with redis.pipeline() as pipe:
-
-        # TODO: check that the players are still in queuing state
-        # before putting them into the game
-
-        # update player state to mark them as in this game
-        for player in players:
-            status_key = get_status_key(player)
-            pipe.set(status_key, STATUS_IN_GAME)
-            pipe.set(redis_key("player", player, "current_game"), game_id)
-
-        pipe.execute()
-
-    # put an init event in the queue
-    # so that a dealer will set up this game
-    pipe.lpush(GAME_EVENTS_QUEUE_KEY, ",".join(["init", game_id]))
+    def raise_init_event(self, game_id):
+        self.redis.rpush(GAME_EVENTS_QUEUE_KEY, ",".join(["init", game_id]))
 
 
 class GameService(object):
@@ -47,6 +31,9 @@ class GameService(object):
         self.id = game_id
         self.redis = redis
 
+    def create_game(self, players):
+        self.redis.rpush(self._players_key(), *players)
+
     def get_players(self):
         """
         Fetches the list of players for the game.
@@ -54,9 +41,6 @@ class GameService(object):
         If the game does not exist, the list will be empty.
         """
         return self.redis.lrange(self._players_key(), 0, -1)
-
-    def put_players(self, players):
-        return self.redis.rpush(self._players_key(), *players)
 
     def set_current_round(self, round_number):
         key = redis_key("game", self.id, "current_round")

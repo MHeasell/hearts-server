@@ -1,17 +1,17 @@
 from flask import Flask, jsonify, abort, request
-from redis import StrictRedis, WatchError
+from redis import StrictRedis
 
 from flask_cors import CORS
 
-from uuid import uuid4
-
 from util import *
-
-from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
 
 import json
 
 from game import GameService, GameRoundService, GameStateError
+
+from player import PlayerService, TicketService
+
+from queue import QueueService
 
 
 app = Flask(__name__)
@@ -19,10 +19,12 @@ cors = CORS(app)
 
 redis = StrictRedis(host='localhost', port=6379, db=0)
 
+ticket_svc = TicketService(redis)
 
 def find_requester_name():
     ticket = request.args.get("ticket", "")
-    return redis.get(ticket_key(ticket))
+
+    return ticket_svc.get_player_from_ticket(ticket)
 
 
 def require_ticket_for(player):
@@ -34,43 +36,36 @@ def require_ticket_for(player):
 @app.route("/queue", methods=["POST"])
 def queue():
     name = request.form["name"]
-    ticket = str(uuid4())
 
-    status_key = get_status_key(name)
+    player_svc = PlayerService(redis)
+    queue_svc = QueueService(redis)
 
-    with redis.pipeline() as pipe:
-        while 1:
-            try:
-                pipe.watch(status_key)
-                status = pipe.get(status_key)
-                if status == STATUS_IN_GAME:
-                    print "player " + name + " is currently in a game"
-                    abort(409)
+    if player_svc.player_exists(name):
+        require_ticket_for(name)
+        ticket = request.args["ticket"]
+    else:
+        player_svc.create_player(name)
+        ticket = ticket_svc.create_ticket_for(name)
 
-                if status == STATUS_QUEUING:
-                    print "player " + name + " is currently queuing"
-                    abort(409)
+    queue_svc.add_player(name)
 
-                pipe.multi()
-                pipe.set(ticket_key(ticket), name)
-                pipe.lpush(QUEUE_KEY, name)
-                pipe.set(status_key, STATUS_QUEUING)
-                pipe.publish(QUEUE_CHANNEL_KEY, "player added")
-                pipe.execute()
-                return jsonify(ticket=ticket)
-            except WatchError:
-                continue
+    return jsonify(ticket=ticket)
 
 
 @app.route("/queue/<player>")
 def show_queue_status(player):
     require_ticket_for(player)
 
-    status = redis.get(get_status_key(player))
+    player_svc = PlayerService(redis)
+    status = player_svc.get_status(player)
+
     if status == STATUS_QUEUING:
         return jsonify(matched=False)
     elif status == STATUS_IN_GAME:
-        game = redis.get(redis_key("player", player, "current_game"))
+        # TODO: fix race condition here
+        # in case status is changed at this point.
+        # I suggest combining status + status data into one key.
+        game = player_svc.get_current_game_id(player)
         return jsonify(matched=True, link="/game/" + game)
     else:
         abort(404)

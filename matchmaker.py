@@ -5,43 +5,48 @@ from redis import StrictRedis, WatchError
 
 from keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
 
-from game import create_game
+from game import GameService, GameEventQueueService
+
+from player import PlayerService
+
+from queue import QueueService
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
 
 
-def try_get_players():
-    with redis.pipeline() as pipe:
-        while True:
-            try:
-                pipe.watch(QUEUE_KEY)
+def create_game(players):
+    game_id = str(uuid4())
 
-                queue_length = pipe.llen(QUEUE_KEY)
-                if queue_length < 4:
-                    return None
+    game_svc = GameService(redis, game_id)
 
-                pipe.multi()
-                pipe.lrange(QUEUE_KEY, -4, -1)
-                pipe.ltrim(QUEUE_KEY, 0, -5)
-                result = pipe.execute()
+    player_svc = PlayerService(redis)
 
-                return result[0]
+    game_queue_svc = GameEventQueueService(redis)
 
-            except WatchError:
-                continue
+    # set up the game
+    game_svc.create_game(players)
+
+    # change the players' statuses to be in-game
+    player_svc.set_as_in_game(game_id, *players)
+
+    # put an init event in the queue
+    # so that a dealer will set up this game
+    game_queue_svc.raise_init_event(game_id)
 
 
 def try_process_queue():
+
+    svc = QueueService(redis)
+
     print "Trying to fetch players..."
-    players = try_get_players()
+    players = svc.try_get_players(4)
 
     if players is None:
         print "Not enough players found."
         return False
 
     print "Four players found, creating game."
-    game_id = str(uuid4())
-    create_game(redis, game_id, players)
+    create_game(players)
     return True
 
 
