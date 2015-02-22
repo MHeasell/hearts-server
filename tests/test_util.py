@@ -145,6 +145,41 @@ class TestComputeScores(unittest.TestCase):
         self.assertEqual(0, scores["Charlie"])
         self.assertEqual(15, scores["David"])
 
+    def test_shoot_moon(self):
+        data = [
+            [
+                '{ "card":"h5", "player":"Alice"}',
+                '{ "card":"h4", "player":"Bob"}',
+                '{ "card":"h3", "player":"Charlie"}',
+                '{ "card":"h2", "player":"David"}',
+            ],
+            [
+                '{ "card":"h9", "player":"Alice"}',
+                '{ "card":"h8", "player":"Bob"}',
+                '{ "card":"h7", "player":"Charlie"}',
+                '{ "card":"h6", "player":"David"}',
+            ],
+            [
+                '{ "card":"hk", "player":"Alice"}',
+                '{ "card":"hq", "player":"Bob"}',
+                '{ "card":"hj", "player":"Charlie"}',
+                '{ "card":"h10", "player":"David"}',
+            ],
+            [
+                '{ "card":"h1", "player":"Alice"}',
+                '{ "card":"sq", "player":"Bob"}',
+                '{ "card":"s2", "player":"Charlie"}',
+                '{ "card":"s3", "player":"David"}',
+            ],
+        ]
+
+        scores = u.compute_scores(data)
+
+        self.assertEqual(0, scores["Alice"])
+        self.assertEqual(26, scores["Bob"])
+        self.assertEqual(26, scores["Charlie"])
+        self.assertEqual(26, scores["David"])
+
 
 if __name__ == '__main__':
     unittest.main()

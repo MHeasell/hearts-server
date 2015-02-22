@@ -79,9 +79,26 @@ def compute_scores(piles):
     for pile in piles:
         pile = map(json.loads, pile)
         pile_cards = map(lambda x: x["card"], pile)
+        pile_players = map(lambda x: x["player"], pile)
         win_index = find_winning_index(pile_cards)
-        pile_winner = pile[win_index]["player"]
-        scores[pile_winner] += sum_points(pile_cards)
+
+        for idx, player in enumerate(pile_players):
+            if idx == win_index:
+                scores[player] += sum_points(pile_cards)
+            else:
+                scores[player] += 0
+
+    shot_player = None
+    for player, score in scores.iteritems():
+        if score == 26:
+            shot_player = player
+
+    if shot_player is not None:
+        for player in scores.iterkeys():
+            if player == shot_player:
+                scores[player] = 0
+            else:
+                scores[player] = 26
 
     return scores
 
