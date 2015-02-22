@@ -210,7 +210,7 @@ def show_pile(game, round_number, pile_number):
             return  # won't get here, but needed to suppress IDE warning
 
         # we reached the end of the round, fire the event
-        if pile_length == 4 and round_number == 13:
+        if pile_length == 4 and pile_number == 13:
             evt_svc = GameEventQueueService(redis)
             evt_svc.raise_end_round_event(game, round_number)
 
