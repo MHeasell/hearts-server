@@ -65,6 +65,10 @@ def find_winning_index(cards):
     return winner_index
 
 
+def sum_points(cards):
+    return sum(map(_point_value, cards))
+
+
 def _get_numeric_rank(str_rank):
     if str_rank == "j":
         return 11
@@ -76,10 +80,6 @@ def _get_numeric_rank(str_rank):
         return 14
 
     return int(str_rank)
-
-
-def sum_points(cards):
-    return sum(map(_point_value, cards))
 
 
 def _parse_card(card):
