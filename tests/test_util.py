@@ -96,5 +96,55 @@ class TestRedisKey(unittest.TestCase):
         self.assertEqual(expected, u.redis_key(*data))
 
 
+class TestComputeScores(unittest.TestCase):
+    def test_simple(self):
+
+        data = [
+            [
+                '{ "card":"c2", "player":"Alice"}',
+                '{ "card":"c3", "player":"Bob"}',
+                '{ "card":"c4", "player":"Charlie"}',
+                '{ "card":"c5", "player":"David"}',
+            ]
+        ]
+
+        scores = u.compute_scores(data)
+
+        self.assertEqual(0, scores["Alice"])
+        self.assertEqual(0, scores["Bob"])
+        self.assertEqual(0, scores["Charlie"])
+        self.assertEqual(0, scores["David"])
+
+    def test_multiple(self):
+
+        data = [
+            [
+                '{ "card":"c2", "player":"Alice"}',
+                '{ "card":"c3", "player":"Bob"}',
+                '{ "card":"c4", "player":"Charlie"}',
+                '{ "card":"c5", "player":"David"}',
+            ],
+            [
+                '{ "card":"c6", "player":"David"}',
+                '{ "card":"c7", "player":"Alice"}',
+                '{ "card":"c8", "player":"Bob"}',
+                '{ "card":"h2", "player":"Charlie"}',
+            ],
+            [
+                '{ "card":"h3", "player":"Bob"}',
+                '{ "card":"s5", "player":"Charlie"}',
+                '{ "card":"h10", "player":"David"}',
+                '{ "card":"sq", "player":"Alice"}',
+            ]
+        ]
+
+        scores = u.compute_scores(data)
+
+        self.assertEqual(0, scores["Alice"])
+        self.assertEqual(1, scores["Bob"])
+        self.assertEqual(0, scores["Charlie"])
+        self.assertEqual(15, scores["David"])
+
+
 if __name__ == '__main__':
     unittest.main()

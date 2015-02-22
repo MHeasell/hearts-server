@@ -1,5 +1,8 @@
 from random import shuffle
 
+from collections import defaultdict
+
+import json
 
 STATUS_QUEUING = "queuing"
 STATUS_IN_GAME = "in_game"
@@ -67,6 +70,20 @@ def find_winning_index(cards):
 
 def sum_points(cards):
     return sum(map(_point_value, cards))
+
+
+def compute_scores(piles):
+    # figure out the scores for this round
+    scores = defaultdict(int)
+
+    for pile in piles:
+        pile = map(json.loads, pile)
+        pile_cards = map(lambda x: x["card"], pile)
+        win_index = find_winning_index(pile_cards)
+        pile_winner = pile[win_index]["player"]
+        scores[pile_winner] += sum_points(pile_cards)
+
+    return scores
 
 
 def _get_numeric_rank(str_rank):

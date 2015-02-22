@@ -1,11 +1,7 @@
 from redis import StrictRedis
 
-from hearts.util import deal_hands, find_winning_index, sum_points
+from hearts.util import deal_hands, compute_scores
 from hearts.services.game import GameService, GameEventQueueService
-
-import json
-
-from collections import defaultdict
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
 
@@ -44,14 +40,7 @@ def process_end_round_event(game_id, round_number):
     piles = round_svc.get_all_piles()
 
     # figure out the scores for this round
-    scores = defaultdict(int)
-
-    for pile in piles:
-        pile = map(json.loads, pile)
-        pile_cards = map(lambda x: x["card"], pile)
-        win_index = find_winning_index(pile_cards)
-        pile_winner = pile[win_index]["player"]
-        scores[pile_winner] += sum_points(pile_cards)
+    scores = compute_scores(piles)
 
     new_scores_dict = game_svc.add_to_scores(game_id, scores)
 
