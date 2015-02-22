@@ -57,11 +57,3 @@ class PlayerService(object):
                     break
                 except WatchError:
                     continue
-
-    def set_as_in_game(self, game_id, *players):
-        with self.redis.pipeline() as pipe:
-            for player in players:
-                status_key = get_status_key(player)
-                pipe.set(status_key, STATUS_IN_GAME)
-                pipe.set(redis_key("player", player, "current_game"), game_id)
-                pipe.execute()

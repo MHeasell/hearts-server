@@ -3,8 +3,10 @@ import json
 
 from redis import WatchError
 
-from hearts.util import redis_key
+from hearts.util import redis_key, get_status_key, STATUS_QUEUING, STATUS_IN_GAME
 from hearts.keys import GAME_EVENTS_QUEUE_KEY
+
+from hearts.services.player import PlayerStateError
 
 
 class AccessDeniedError(Exception):
@@ -57,8 +59,31 @@ class GameService(object):
 
     def create_game(self, players):
         game_id = str(uuid4())
-        self.redis.rpush(_players_key(game_id), *players)
-        return game_id
+        with self.redis.pipeline() as pipe:
+            while True:
+                try:
+                    status_keys = map(get_status_key, players)
+                    for key in status_keys:
+                        pipe.watch(key)
+
+                    for key in status_keys:
+                        status = pipe.get(key)
+                        if status != STATUS_QUEUING:
+                            raise PlayerStateError("Player is not queuing.")
+
+                    pipe.multi()
+                    pipe.rpush(_players_key(game_id), *players)
+
+                    for player, key in zip(players, status_keys):
+                        pipe.set(key, STATUS_IN_GAME)
+                        pipe.set(redis_key("player", player, "current_game"), game_id)
+
+                    pipe.execute()
+
+                    return game_id
+
+                except WatchError:
+                    continue
 
     def get_players(self, game_id):
         """
