@@ -7,12 +7,14 @@ from hearts.services.queue import QueueService
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
 
+game_svc = GameService(redis)
+
+game_evt_queue_svc = GameEventQueueService(redis)
+
+queue_svc = QueueService(redis)
+
 
 def create_game(players):
-    game_svc = GameService(redis)
-
-    game_queue_svc = GameEventQueueService(redis)
-
     # set up the game
     try:
         game_id = game_svc.create_game(players)
@@ -20,10 +22,9 @@ def create_game(players):
         # Some player must have left the queue
         # or gone away.
         # Try to place each player back in queue.
-        svc = QueueService(redis)
         for player in players:
             try:
-                svc.readd_player(player)
+                queue_svc.readd_player(player)
             except PlayerStateError:
                 pass
 
@@ -31,15 +32,12 @@ def create_game(players):
 
     # put an init event in the queue
     # so that a dealer will set up this game
-    game_queue_svc.raise_init_event(game_id)
+    game_evt_queue_svc.raise_init_event(game_id)
 
 
 def try_process_queue():
-
-    svc = QueueService(redis)
-
     print "Trying to fetch players..."
-    players = svc.try_get_players(4)
+    players = queue_svc.try_get_players(4)
 
     if players is None:
         print "Not enough players found."
