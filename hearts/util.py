@@ -47,7 +47,7 @@ def redis_key(*args):
 
 
 def find_winning_index(cards):
-    parsed_cards = map(parse_card, cards)
+    parsed_cards = map(_parse_card, cards)
 
     lead_suit = parsed_cards[0][0]
 
@@ -57,7 +57,7 @@ def find_winning_index(cards):
     for (index, (suit, rank)) in enumerate(parsed_cards):
         if suit != lead_suit:
             continue
-        numeric_rank = get_numeric_rank(rank)
+        numeric_rank = _get_numeric_rank(rank)
         if numeric_rank > winner_rank:
             winner_rank = numeric_rank
             winner_index = index
@@ -65,7 +65,7 @@ def find_winning_index(cards):
     return winner_index
 
 
-def get_numeric_rank(str_rank):
+def _get_numeric_rank(str_rank):
     if str_rank == "j":
         return 11
     if str_rank == "q":
@@ -79,20 +79,20 @@ def get_numeric_rank(str_rank):
 
 
 def sum_points(cards):
-    return sum(map(point_value, cards))
+    return sum(map(_point_value, cards))
 
 
-def parse_card(card):
+def _parse_card(card):
     suit = card[0]
     rank = card[1:]
     return suit, rank
 
 
-def point_value(card):
+def _point_value(card):
     if card == "sq":
         return 13
 
-    suit, rank = parse_card(card)
+    suit, rank = _parse_card(card)
     if suit == "h":
         return 1
 
