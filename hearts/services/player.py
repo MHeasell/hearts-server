@@ -58,26 +58,6 @@ class PlayerService(object):
                 except WatchError:
                     continue
 
-    def set_as_queuing(self, player):
-        status_key = redis_key("player", player, "status")
-
-        with self.redis.pipeline() as pipe:
-            while True:
-                try:
-                    pipe.watch(status_key)
-                    status = pipe.get(status_key)
-                    if status == STATUS_IN_GAME:
-                        raise PlayerStateError(player + " is currently in-game.")
-
-                    pipe.multi()
-                    pipe.set(status_key, STATUS_QUEUING)
-                    pipe.execute()
-
-                    break
-
-                except WatchError:
-                    continue
-
     def set_as_in_game(self, game_id, *players):
         with self.redis.pipeline() as pipe:
             for player in players:
