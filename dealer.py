@@ -118,6 +118,8 @@ def point_value(card):
     if suit == "h":
         return 1
 
+    return 0
+
 
 def process_event(event_type, *args):
     if event_type == "init":
