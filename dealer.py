@@ -130,6 +130,9 @@ def process_event(event_type, *args):
         print "Unknown event type: " + event_type
 
 if __name__ == "__main__":
-    while True:
-        params = queue_svc.blocking_pop_event()
-        process_event(*params)
+    try:
+        while True:
+            params = queue_svc.blocking_pop_event()
+            process_event(*params)
+    except KeyboardInterrupt:
+        print "Received interrupt signal, terminating."

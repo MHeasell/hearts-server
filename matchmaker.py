@@ -59,6 +59,12 @@ if __name__ == "__main__":
 
     # whenever the queue changes, try to process it
     print "Waiting for messages..."
-    for message in p.listen():
-        print "Got message."
-        consume_queue()
+
+    try:
+        for message in p.listen():
+            print "Got message."
+            consume_queue()
+    except KeyboardInterrupt:
+        print "Received interrupt signal, terminating."
+    finally:
+        p.close()
