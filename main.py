@@ -5,7 +5,7 @@ from redis import StrictRedis
 from flask_cors import CORS
 
 from hearts.util import *
-from hearts.services.game import GameService, GameRoundService, GameStateError
+from hearts.services.game import GameService, GameRoundService, GameEventQueueService, GameStateError
 from hearts.services.player import PlayerService, TicketService, PlayerStateError
 from hearts.services.queue import QueueService
 
@@ -204,9 +204,15 @@ def show_pile(game, round_number, pile_number):
         # to make sure that the move is legal!
 
         try:
-            svc.play_card(pile_number, player, card)
+            pile_length = svc.play_card(pile_number, player, card)
         except GameStateError:
             abort(409)
+            return  # won't get here, but needed to suppress IDE warning
+
+        # we reached the end of the round, fire the event
+        if pile_length == 4 and round_number == 13:
+            evt_svc = GameEventQueueService(redis)
+            evt_svc.raise_end_round_event(game, round_number)
 
         return jsonify(success=True)
 

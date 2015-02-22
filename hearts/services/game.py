@@ -32,12 +32,22 @@ class GameEventQueueService(object):
     def raise_start_round_event(self, game_id, round_number):
         self._raise_event("start_round", game_id, round_number)
 
+    def raise_end_round_event(self, game_id, round_number):
+        self._raise_event("end_round", game_id, round_number)
+
+    def raise_end_game_event(self, game_id):
+        self._raise_event("end_game", game_id)
+
     def _raise_event(self, *data):
         self.redis.lpush(GAME_EVENTS_QUEUE_KEY, ",".join(map(str, data)))
 
 
 def _players_key(game_id):
         return redis_key("game", game_id, "players")
+
+
+def _score_key(game_id, player):
+    return redis_key("game", game_id, "players", player, "score")
 
 
 class GameService(object):
@@ -64,6 +74,16 @@ class GameService(object):
 
     def get_round_service(self, game_id, round_number):
         return GameRoundService(self.redis, game_id, round_number)
+
+    def add_to_scores(self, game_id, score_dict):
+        players = score_dict.keys()
+        with self.redis.pipeline() as pipe:
+            for player in players:
+                key = _score_key(game_id, player)
+                pipe.incrby(key, score_dict[player])
+            new_scores = pipe.execute()
+
+        return dict(zip(players, new_scores))
 
 
 class GameRoundService(object):
@@ -164,9 +184,10 @@ class GameRoundService(object):
                     pipe.srem(player_hand_key, card)
                     pipe.srem(passed_cards_key, card)
                     pipe.rpush(pile_key, blob)
-                    pipe.execute()
+                    pipe.llen(pile_key)
+                    pile_length = pipe.execute()[3]
 
-                    break
+                    return pile_length
 
                 except WatchError:
                     continue
@@ -178,6 +199,13 @@ class GameRoundService(object):
     def get_pile_card(self, pile_number, card_number):
         key = self._pile_key(pile_number)
         return self.redis.lindex(key, card_number - 1)
+
+    def get_all_piles(self):
+        with self.redis.pipeline() as pipe:
+            for i in xrange(1, 14):
+                pipe.lrange(self._pile_key(i), 0, -1)
+
+            return pipe.execute()
 
     def _pile_key(self, pile_number):
         return redis_key(
