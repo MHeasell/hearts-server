@@ -21,20 +21,56 @@ class QueueService(object):
         status_key = redis_key("player", player, "status")
 
         with self.redis.pipeline() as pipe:
-            pipe.watch(player_key)
-            pipe.watch(status_key)
+            while True:
+                try:
+                    pipe.watch(player_key)
+                    pipe.watch(status_key)
 
-            if pipe.get(player_key) is None:
-                raise PlayerStateError("Player does not exist.")
+                    if pipe.get(player_key) is None:
+                        raise PlayerStateError("Player does not exist.")
 
-            if pipe.get(status_key) == STATUS_IN_GAME:
-                raise PlayerStateError("Player is currently in-game.")
+                    if pipe.get(status_key) == STATUS_IN_GAME:
+                        raise PlayerStateError("Player is currently in-game.")
 
-            pipe.multi()
-            pipe.set(status_key, STATUS_QUEUING)
-            pipe.zadd(QUEUE_KEY, stamp, player)
-            pipe.publish(QUEUE_CHANNEL_KEY, "player added")
-            pipe.execute()
+                    pipe.multi()
+                    pipe.set(status_key, STATUS_QUEUING)
+                    pipe.zadd(QUEUE_KEY, stamp, player)
+                    pipe.publish(QUEUE_CHANNEL_KEY, "player added")
+                    pipe.execute()
+
+                    break
+
+                except WatchError:
+                    continue
+
+    def readd_player(self, player):
+        stamp = time.time()
+
+        player_key = redis_key("player", player)
+        status_key = redis_key("player", player, "status")
+
+        with self.redis.pipeline() as pipe:
+            while True:
+                try:
+                    pipe.watch(player_key)
+                    pipe.watch(status_key)
+
+                    if pipe.get(player_key) is None:
+                        raise PlayerStateError("Player does not exist.")
+
+                    if pipe.get(status_key) != STATUS_QUEUING:
+                        raise PlayerStateError("Player is not currently queuing.")
+
+                    pipe.multi()
+                    pipe.zadd(QUEUE_KEY, stamp, player)
+                    pipe.publish(QUEUE_CHANNEL_KEY, "player added")
+                    pipe.execute()
+
+                    break
+
+                except WatchError:
+                    continue
+
 
     def try_get_players(self, count):
         with self.redis.pipeline() as pipe:

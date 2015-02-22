@@ -2,7 +2,7 @@ from redis import StrictRedis
 
 from hearts.keys import QUEUE_CHANNEL_KEY
 from hearts.services.game import GameService, GameEventQueueService
-from hearts.services.player import PlayerService, PlayerStateError
+from hearts.services.player import PlayerStateError
 from hearts.services.queue import QueueService
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
@@ -11,22 +11,27 @@ redis = StrictRedis(host="localhost", port=6379, db=0)
 def create_game(players):
     game_svc = GameService(redis)
 
-    player_svc = PlayerService(redis)
-
     game_queue_svc = GameEventQueueService(redis)
 
     # set up the game
     try:
         game_id = game_svc.create_game(players)
-
-        # put an init event in the queue
-        # so that a dealer will set up this game
-        game_queue_svc.raise_init_event(game_id)
-
     except PlayerStateError:
-        # TODO: stuff remaining player back into the queue
-        # instead of just dumping them
-        pass
+        # Some player must have left the queue
+        # or gone away.
+        # Try to place each player back in queue.
+        svc = QueueService(redis)
+        for player in players:
+            try:
+                svc.readd_player(player)
+            except PlayerStateError:
+                pass
+
+        return
+
+    # put an init event in the queue
+    # so that a dealer will set up this game
+    game_queue_svc.raise_init_event(game_id)
 
 
 def try_process_queue():
