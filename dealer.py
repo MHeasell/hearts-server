@@ -1,7 +1,6 @@
 from redis import StrictRedis
 
 from hearts.util import deal_hands
-from hearts.keys import GAME_EVENTS_QUEUE_KEY
 from hearts.services.game import GameService, GameEventQueueService
 
 redis = StrictRedis(host="localhost", port=6379, db=0)
