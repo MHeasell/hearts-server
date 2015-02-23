@@ -14,20 +14,14 @@ game_evt_queue_svc = GameEventQueueService(redis)
 queue_svc = QueueService(redis)
 
 
-def create_game(players):
+def try_create_game(players):
     # set up the game
     try:
         game_id = game_svc.create_game(players)
     except PlayerStateError:
         # Some player must have left the queue
-        # or gone away.
-        # Try to place each player back in queue.
-        for player in players:
-            try:
-                queue_svc.readd_player(player)
-            except PlayerStateError:
-                pass
-
+        # since we found them.
+        # Abort.
         return
 
     # put an init event in the queue
@@ -39,12 +33,12 @@ def try_process_queue():
     print "Trying to fetch players..."
     players = queue_svc.try_get_players(4)
 
-    if players is None:
+    if players is None or len(players) < 4:
         print "Not enough players found."
         return False
 
     print "Four players found, creating game."
-    create_game(players)
+    try_create_game(players)
     return True
 
 

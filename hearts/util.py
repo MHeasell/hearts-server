@@ -4,9 +4,6 @@ from collections import defaultdict
 
 import json
 
-STATUS_QUEUING = "queuing"
-STATUS_IN_GAME = "in_game"
-
 
 def gen_deck():
     return [s + str(num)
@@ -28,10 +25,6 @@ def deal_hands():
         deck_copy[39:52]]
 
     return hands
-
-
-def get_status_key(player):
-    return redis_key("player", player, "status")
 
 
 def is_card(identifier):

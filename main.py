@@ -63,12 +63,12 @@ def queue():
 def show_queue_status(player):
     require_ticket_for(player)
 
-    player_svc = PlayerService(redis)
-    (status, game_id) = player_svc.get_status(player)
+    queue_svc = QueueService(redis)
+    (status, game_id) = queue_svc.get_status(player)
 
-    if status == STATUS_QUEUING:
+    if status == "queuing":
         return jsonify(matched=False)
-    elif status == STATUS_IN_GAME:
+    elif status == "in-game":
         return jsonify(matched=True, link="/game/" + game_id)
     else:
         abort(404)

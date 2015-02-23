@@ -3,8 +3,8 @@ import json
 
 from redis import WatchError
 
-from hearts.util import redis_key, get_status_key, STATUS_QUEUING, STATUS_IN_GAME
-from hearts.keys import GAME_EVENTS_QUEUE_KEY
+from hearts.util import redis_key
+from hearts.keys import GAME_EVENTS_QUEUE_KEY, QUEUE_KEY
 
 from hearts.services.player import PlayerStateError
 
@@ -59,24 +59,30 @@ class GameService(object):
 
     def create_game(self, players):
         game_id = str(uuid4())
+
         with self.redis.pipeline() as pipe:
             while True:
                 try:
-                    status_keys = map(get_status_key, players)
-                    for key in status_keys:
-                        pipe.watch(key)
+                    # guard against queue changes
+                    pipe.watch(QUEUE_KEY)
 
-                    for key in status_keys:
-                        status = pipe.get(key)
-                        if status != STATUS_QUEUING:
-                            raise PlayerStateError("Player is not queuing.")
+                    # check that the players are in the queue
+                    for player in players:
+                        if pipe.zscore(QUEUE_KEY, player) is None:
+                            raise PlayerStateError("Player is not in the queue.")
 
                     pipe.multi()
+
+                    # add the players to the game players list
                     pipe.rpush(_players_key(game_id), *players)
 
-                    for player, key in zip(players, status_keys):
-                        pipe.set(key, STATUS_IN_GAME)
-                        pipe.set(redis_key("player", player, "current_game"), game_id)
+                    # set each player's current game to this
+                    for player in players:
+                        key = redis_key("player", player, "current_game")
+                        pipe.set(key, game_id)
+
+                    # remove the players from the queue
+                    pipe.zrem(QUEUE_KEY, *players)
 
                     pipe.execute()
 

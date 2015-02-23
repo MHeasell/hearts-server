@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from redis import WatchError
 
-from hearts.util import redis_key, ticket_key, get_status_key, STATUS_IN_GAME, STATUS_QUEUING
+from hearts.util import redis_key, ticket_key
 
 
 class PlayerStateError(Exception):
@@ -29,18 +29,12 @@ class PlayerService(object):
     def __init__(self, redis):
         self.redis = redis
 
-    def get_status(self, player):
-        status_key = redis_key("player", player, "status")
+    def get_current_game(self, player):
         game_key = redis_key("player", player, "current_game")
-
-        with self.redis.pipeline() as pipe:
-            pipe.get(status_key)
-            pipe.get(game_key)
-            return pipe.execute()
+        return self.redis.get(game_key)
 
     def create_player(self, player):
         player_key = redis_key("player", player)
-        status_key = redis_key("player", player, "status")
 
         with self.redis.pipeline() as pipe:
             while True:
@@ -52,7 +46,6 @@ class PlayerService(object):
 
                     pipe.multi()
                     pipe.set(player_key, "1")
-                    pipe.set(status_key, "idle")
                     pipe.execute()
                     break
                 except WatchError:
