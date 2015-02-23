@@ -29,7 +29,11 @@ def find_requester_name():
 
 
 def require_ticket_for(player):
-    ticket_player = find_requester_name()
+    ticket = request.args.get("ticket", "")
+    if ticket == "":
+        abort(401)
+
+    ticket_player = ticket_svc.get_player_from_ticket(ticket)
     if ticket_player != player:
         abort(403)
 
