@@ -203,11 +203,15 @@ class GameRoundService(object):
                 try:
                     pipe.watch(player_hand_key)
                     pipe.watch(passed_cards_key)
+                    pipe.watch(pile_key)
 
                     if not pipe.sismember(player_hand_key, card) \
                             and not pipe.sismember(passed_cards_key, card):
                         err = "{0}'s hand does not contain card {1}."
                         raise GameStateError(err.format(player, card))
+
+                    if pipe.llen(pile_key) > 4:
+                        raise GameStateError("The pile is full.")
 
                     blob = json.dumps({"player": player, "card": card})
 
