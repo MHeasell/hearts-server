@@ -57,6 +57,11 @@ def process_end_round_event(game_id, round_number):
         queue_svc.raise_start_round_event(game_id, round_number + 1)
 
 
+def process_end_game_event(game_id):
+    # TODO: do something when the game ends
+    pass
+
+
 def process_event(event_type, *args):
     if event_type == "init":
         process_init_event(args[0])
@@ -64,6 +69,8 @@ def process_event(event_type, *args):
         process_start_round_event(args[0], int(args[1]))
     elif event_type == "end_round":
         process_end_round_event(args[0], int(args[1]))
+    elif event_type == "end_game":
+        process_end_game_event(args[0])
     else:
         print "Unknown event type: " + event_type
 
