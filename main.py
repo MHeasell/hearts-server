@@ -1,5 +1,3 @@
-import json
-
 from flask import Flask, jsonify, abort, request
 from redis import StrictRedis
 from flask_cors import CORS
