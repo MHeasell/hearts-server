@@ -229,5 +229,27 @@ def show_pile_card(game, round_number, pile_number, card_number):
     return jsonify(**card_data)
 
 
+@app.route("/game/<game>/events")
+def event_log(game):
+    svc = GameService(redis)
+
+    events_json = svc.get_events(game)
+    events = map(json.loads, events_json)
+
+    return jsonify(events=events)
+
+
+@app.route("/game/<game>/events/<int:event_number>")
+def event_log_item(game, event_number):
+    svc = GameService(redis)
+    event_json = svc.get_event(game, event_number)
+
+    if event_json is None:
+        abort(404)
+
+    event = json.loads(event_json)
+
+    return jsonify(**event)
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")

@@ -8,6 +8,8 @@ from hearts.keys import GAME_EVENTS_QUEUE_KEY, QUEUE_KEY
 
 from hearts.services.player import PlayerStateError
 
+import time
+
 
 class AccessDeniedError(Exception):
     pass
@@ -50,6 +52,26 @@ def _players_key(game_id):
 
 def _score_key(game_id, player):
     return redis_key("game", game_id, "players", player, "score")
+
+
+def _events_key(game_id):
+    return redis_key("game", game_id, "events")
+
+
+def _last_event_key(game_id):
+    return redis_key("game", game_id, "last_event")
+
+
+def _push_event(pipe, game_id, event_type, **event_keys):
+    timestamp = time.time()
+    event_json = json.dumps(
+        type=event_type,
+        timestamp=timestamp,
+        **event_keys)
+
+    key = _events_key(game_id)
+    pipe.zadd(key, timestamp, event_json)
+    pipe.set(_last_event_key(game_id), timestamp)
 
 
 class GameService(object):
@@ -115,6 +137,16 @@ class GameService(object):
             new_scores = pipe.execute()
 
         return dict(zip(players, new_scores))
+
+    def get_events(self, game_id):
+        return self.redis.zrange(_events_key(game_id), 0, -1)
+
+    def get_event(self, game_id, idx):
+        idx -= 1  # convert to zero-based index
+        events = self.redis.zrange(_events_key(game_id), idx, idx)
+        if events is None or len(events) < 1:
+            return None
+        return events[0]
 
 
 class GameRoundService(object):
