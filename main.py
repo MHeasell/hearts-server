@@ -16,12 +16,6 @@ redis = StrictRedis(host='localhost', port=6379, db=0)
 ticket_svc = TicketService(redis)
 
 
-def get_pass_direction(round_number):
-    dirs = ["left", "across", "right", "none"]
-    index = (round_number - 1) % 4
-    return dirs[index]
-
-
 def find_requester_name():
     ticket = request.args.get("ticket", "")
 
@@ -163,8 +157,11 @@ def passed_cards(game, round_number, player):
 
         # figure out whether the requester is allowed to pass
         # to this player
-        # TODO: consider round number when checking this
-        allowed_index = (requester_index + 1) % 4
+        offset = get_pass_offset(get_pass_direction(round_number))
+        if offset == 0:
+            abort(403)
+
+        allowed_index = (requester_index + offset) % 4
         if allowed_index != player_index:
             abort(403)
 
