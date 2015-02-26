@@ -181,5 +181,18 @@ class TestComputeScores(unittest.TestCase):
         self.assertEqual(26, scores["David"])
 
 
+class TestGetPassDirection(unittest.TestCase):
+    def test_simple(self):
+        self.assertEqual("left", u.get_pass_direction(1))
+        self.assertEqual("right", u.get_pass_direction(2))
+        self.assertEqual("across", u.get_pass_direction(3))
+        self.assertEqual("none", u.get_pass_direction(4))
+
+        self.assertEqual("left", u.get_pass_direction(5))
+        self.assertEqual("right", u.get_pass_direction(6))
+        self.assertEqual("across", u.get_pass_direction(7))
+        self.assertEqual("none", u.get_pass_direction(8))
+
+
 if __name__ == '__main__':
     unittest.main()

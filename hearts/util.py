@@ -96,6 +96,23 @@ def compute_scores(piles):
     return scores
 
 
+def get_pass_direction(round_number):
+    dirs = ["left", "right", "across", "none"];
+    idx = (round_number - 1) % 4
+    return dirs[idx]
+
+
+def get_pass_offset(direction):
+    if direction == "left":
+        return 1
+    if direction == "across":
+        return 2
+    if direction == "right":
+        return 3
+    if direction == "none":
+        return 0
+
+
 def _get_numeric_rank(str_rank):
     if str_rank == "j":
         return 11
