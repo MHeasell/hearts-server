@@ -152,13 +152,18 @@ def passed_cards(game, round_number, player):
         except GameStateError:
             abort(409)
 
+        # check if everyone has received now
+        if round_svc.have_all_received_cards(*players):
+            game_svc.log_round_passing_completed_event(game, round_number)
+
         return jsonify(success=True)
 
 
 @app.route("/game/<game>/rounds/<int:round_number>/piles/<int:pile_number>", methods=["GET", "POST"])
 def show_pile(game, round_number, pile_number):
 
-    svc = GameRoundService(redis, game, round_number)
+    game_svc = GameService(redis)
+    svc = game_svc.get_round_service(game, round_number)
 
     if request.method == "GET":
         cards = svc.get_pile(pile_number)
@@ -184,6 +189,9 @@ def show_pile(game, round_number, pile_number):
         except GameStateError:
             abort(409)
             return  # won't get here, but needed to suppress IDE warning
+
+        # log that a card was played
+        game_svc.log_play_card_event(game, round_number, pile_number, pile_length, player, card)
 
         # we reached the end of the round, fire the event
         if pile_length == 4 and pile_number == 13:

@@ -30,6 +30,9 @@ def process_start_round_event(game_id, round_number):
     # set the current round
     game_svc.set_current_round(game_id, round_number)
 
+    # log the round start event
+    game_svc.log_round_start_event(game_id, round_number)
+
 
 def process_end_round_event(game_id, round_number):
     print "processing round " + str(round_number) + " end for game " + game_id

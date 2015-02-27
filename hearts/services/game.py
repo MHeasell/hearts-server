@@ -148,6 +148,25 @@ class GameService(object):
             return None
         return events[0]
 
+    def log_round_start_event(self, game_id, round_number):
+        self._log_event(game_id, "round_start", round_number=round_number)
+
+    def log_round_passing_completed_event(self, game_id, round_number):
+        self._log_event(game_id, "passing_completed", round_number=round_number)
+
+    def log_play_card_event(self, game_id, round_number, pile_number, card_number, player, card):
+        self._log_event(
+            game_id,
+            "play_card",
+            round_number=round_number,
+            pile_number=pile_number,
+            card_number=card_number,
+            player=player,
+            card=card)
+
+    def _log_event(self, game_id, event_type, **data):
+        _push_event(self.redis, game_id, event_type, **data)
+
 
 class GameRoundService(object):
     def __init__(self, redis, game_id, round_number):
