@@ -187,9 +187,24 @@ class GameRoundService(object):
         key = self._received_cards_key(player_name)
         return self.redis.smembers(key)
 
+    def have_all_received_cards(self, *players):
+        with self.redis.pipeline() as pipe:
+            for player in players:
+                pipe.get(self._received_key(player))
+            result = pipe.execute()
+
+        for r in result:
+            if not r:
+                return False
+
+        return True
+
     def pass_cards(self, from_player, to_player, cards):
         requester_hand_key = self._hand_key(from_player)
         target_passed_cards_key = self._received_cards_key(to_player)
+
+        requester_has_passed_key = self._passed_key(from_player)
+        target_has_received_key = self._received_key(to_player)
 
         with self.redis.pipeline() as pipe:
             while True:
@@ -217,6 +232,10 @@ class GameRoundService(object):
 
                     # add the cards to the target's passed cards collection
                     pipe.sadd(target_passed_cards_key, *cards)
+
+                    # mark each player has having passed/received
+                    pipe.set(requester_has_passed_key, True)
+                    pipe.set(target_has_received_key, True)
 
                     pipe.execute()
 
@@ -302,3 +321,23 @@ class GameRoundService(object):
             "players",
             player,
             "passed_cards")
+
+    def _received_key(self, player):
+        return redis_key(
+            "game",
+            self.game_id,
+            "rounds",
+            self.round_number,
+            "players",
+            player,
+            "has_received_cards")
+
+    def _passed_key(self, player):
+        return redis_key(
+            "game",
+            self.game_id,
+            "rounds",
+            self.round_number,
+            "players",
+            player,
+            "has_passed_cards")

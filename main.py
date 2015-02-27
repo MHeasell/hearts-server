@@ -106,32 +106,9 @@ def passed_cards(game, round_number, player):
     if request.method == "GET":
         require_ticket_for(player)
 
-        # figure out who this person should have passed to
+        # forbid access if not everyone has received their cards yet
         players = game_svc.get_players(game)
-        try:
-            player_index = players.index(player)
-        except ValueError:
-            abort(403)
-            return  # won't be reached, but needed to suppress IDE warning
-
-        pass_direction = get_pass_direction(round_number)
-        if pass_direction == "none":
-            return jsonify(cards=[])
-
-        if pass_direction == "left":
-            target_offset = 1
-        elif pass_direction == "across":
-            target_offset = 2
-        elif pass_direction == "right":
-            target_offset = 3
-        else:
-            raise Exception("unrecognised pass direction: " + pass_direction)
-
-        target_index = (player_index + target_offset) % 4
-        target_name = players[target_index]
-
-        # forbid access if their target doesn't have their cards yet
-        if not round_svc.has_received_cards(target_name):
+        if not round_svc.have_all_received_cards(*players):
             abort(403)
 
         cards = round_svc.get_passed_cards(player)
