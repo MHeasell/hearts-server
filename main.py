@@ -159,7 +159,7 @@ def passed_cards(game, round_number, player):
         return jsonify(success=True)
 
 
-@app.route("/game/<game>/rounds/<int:round_number>/piles/<int:pile_number>", methods=["GET", "POST"])
+@app.route("/game/<game>/rounds/<int:round_number>/tricks/<int:pile_number>", methods=["GET", "POST"])
 def show_pile(game, round_number, pile_number):
 
     game_svc = GameService(redis)
@@ -201,7 +201,7 @@ def show_pile(game, round_number, pile_number):
         return jsonify(success=True)
 
 
-@app.route("/game/<game>/rounds/<int:round_number>/piles/<int:pile_number>/<int:card_number>")
+@app.route("/game/<game>/rounds/<int:round_number>/tricks/<int:pile_number>/<int:card_number>")
 def show_pile_card(game, round_number, pile_number, card_number):
     svc = GameRoundService(redis, game, round_number)
 
