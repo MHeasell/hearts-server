@@ -8,11 +8,23 @@ from hearts.services.game import GameService, GameRoundService, GameEventQueueSe
 from hearts.services.player import PlayerService, TicketService, PlayerStateError
 from hearts.services.queue import QueueService
 
+import ConfigParser
+
+config = ConfigParser.RawConfigParser()
+config.read('config.ini')
+
+redis_host = config.get("Redis", "host")
+redis_port = config.getint("Redis", "port")
+redis_db = config.getint("Redis", "db")
+
+use_cors = config.getboolean("Main", "use_cors")
 
 app = Flask(__name__)
-cors = CORS(app)
 
-redis = StrictRedis(host='localhost', port=6379, db=0)
+if use_cors:
+    cors = CORS(app)
+
+redis = StrictRedis(host=redis_host, port=redis_port, db=redis_db)
 
 ticket_svc = TicketService(redis)
 
