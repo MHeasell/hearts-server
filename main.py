@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, abort, request
 from redis import StrictRedis
 from flask_cors import CORS
+from werkzeug.exceptions import default_exceptions, HTTPException
 
 from hearts.util import *
 from hearts.services.game import GameService, GameRoundService, GameEventQueueService, GameStateError
@@ -14,6 +15,20 @@ cors = CORS(app)
 redis = StrictRedis(host='localhost', port=6379, db=0)
 
 ticket_svc = TicketService(redis)
+
+
+def create_json_error(e):
+    response = jsonify(message=str(e))
+    if isinstance(e, HTTPException):
+        response.status_code = e.code
+    else:
+        response.status_code = 500
+
+    return response
+
+
+for code in default_exceptions.iterkeys():
+    app.error_handler_spec[None][code] = create_json_error
 
 
 def find_requester_name():
