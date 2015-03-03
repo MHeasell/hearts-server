@@ -93,9 +93,9 @@ def show_game(game):
 
     # TODO: write svc method
     players = svc.get_players(game)
-    round = svc.get_current_round(game)
+    round_number = svc.get_current_round(game)
 
-    return jsonify(players=players, current_round=round)
+    return jsonify(players=players, current_round=round_number)
 
 
 @app.route("/games/<game>/players")
