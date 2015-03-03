@@ -72,6 +72,17 @@ def show_queue_status(player):
         abort(404)
 
 
+@app.route("/game/<game>")
+def show_game(game):
+    svc = GameService(game)
+
+    # TODO: write svc method
+    players = svc.get_players(game)
+    round = svc.get_current_round(game)
+
+    return jsonify(players=players, current_round=round)
+
+
 @app.route("/game/<game>/players")
 def show_players(game):
     svc = GameService(redis)
@@ -81,6 +92,17 @@ def show_players(game):
         abort(404)
 
     return jsonify(players=players)
+
+
+@app.route("/game/<game>/players/<int:player_number>")
+def show_game_player(game, player_number):
+    svc = GameService(redis)
+    player = svc.get_player(game, player_number)
+
+    if player is None:
+        abort(404)
+
+    return player
 
 
 @app.route("/game/<game>/rounds/<int:round_number>/players/<player>/hand")

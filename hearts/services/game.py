@@ -120,6 +120,13 @@ class GameService(object):
         """
         return self.redis.lrange(_players_key(game_id), 0, -1)
 
+    def get_player(self, game_id, player_number):
+        return self.redis.lindex(_players_key(game_id), player_number - 1)
+
+    def get_current_round(self, game_id):
+        key = redis_key("game", game_id, "current_round")
+        return int(self.redis.get(key))
+
     def set_current_round(self, game_id, round_number):
         key = redis_key("game", game_id, "current_round")
         self.redis.set(key, round_number)
