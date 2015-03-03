@@ -82,12 +82,12 @@ def show_queue_status(player):
     if status == "queuing":
         return jsonify(matched=False)
     elif status == "in-game":
-        return jsonify(matched=True, link="/game/" + game_id)
+        return jsonify(matched=True, link="/games/" + game_id)
     else:
         abort(404)
 
 
-@app.route("/game/<game>")
+@app.route("/games/<game>")
 def show_game(game):
     svc = GameService(game)
 
@@ -98,7 +98,7 @@ def show_game(game):
     return jsonify(players=players, current_round=round)
 
 
-@app.route("/game/<game>/players")
+@app.route("/games/<game>/players")
 def show_players(game):
     svc = GameService(redis)
     players = svc.get_players(game)
@@ -109,7 +109,7 @@ def show_players(game):
     return jsonify(players=players)
 
 
-@app.route("/game/<game>/players/<int:player_number>")
+@app.route("/games/<game>/players/<int:player_number>")
 def show_game_player(game, player_number):
     svc = GameService(redis)
     player = svc.get_player(game, player_number)
@@ -120,7 +120,7 @@ def show_game_player(game, player_number):
     return player
 
 
-@app.route("/game/<game>/rounds/<int:round_number>/players/<player>/hand")
+@app.route("/games/<game>/rounds/<int:round_number>/players/<player>/hand")
 def show_hand(game, round_number, player):
     require_ticket_for(player)
 
@@ -133,7 +133,7 @@ def show_hand(game, round_number, player):
     return jsonify(cards=list(hand))
 
 
-@app.route("/game/<game>/rounds/<int:round_number>/players/<player>/passed_cards",
+@app.route("/games/<game>/rounds/<int:round_number>/players/<player>/passed_cards",
            methods=["GET", "POST"])
 def passed_cards(game, round_number, player):
 
@@ -196,7 +196,7 @@ def passed_cards(game, round_number, player):
         return jsonify(success=True)
 
 
-@app.route("/game/<game>/rounds/<int:round_number>/tricks/<int:pile_number>", methods=["GET", "POST"])
+@app.route("/games/<game>/rounds/<int:round_number>/tricks/<int:pile_number>", methods=["GET", "POST"])
 def show_pile(game, round_number, pile_number):
 
     game_svc = GameService(redis)
@@ -238,7 +238,7 @@ def show_pile(game, round_number, pile_number):
         return jsonify(success=True)
 
 
-@app.route("/game/<game>/rounds/<int:round_number>/tricks/<int:pile_number>/<int:card_number>")
+@app.route("/games/<game>/rounds/<int:round_number>/tricks/<int:pile_number>/<int:card_number>")
 def show_pile_card(game, round_number, pile_number, card_number):
     svc = GameRoundService(redis, game, round_number)
 
@@ -251,7 +251,7 @@ def show_pile_card(game, round_number, pile_number, card_number):
     return jsonify(**card_data)
 
 
-@app.route("/game/<game>/events")
+@app.route("/games/<game>/events")
 def event_log(game):
     svc = GameService(redis)
 
@@ -261,7 +261,7 @@ def event_log(game):
     return jsonify(events=events)
 
 
-@app.route("/game/<game>/events/<int:event_number>")
+@app.route("/games/<game>/events/<int:event_number>")
 def event_log_item(game, event_number):
     svc = GameService(redis)
     event_json = svc.get_event(game, event_number)
