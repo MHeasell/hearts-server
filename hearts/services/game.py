@@ -64,10 +64,9 @@ def _last_event_key(game_id):
 
 def _push_event(pipe, game_id, event_type, **event_keys):
     timestamp = time.time()
-    event_json = json.dumps(
-        type=event_type,
-        timestamp=timestamp,
-        **event_keys)
+    event_keys["type"] = event_type
+    event_keys["timestamp"] = timestamp
+    event_json = json.dumps(event_keys)
 
     key = _events_key(game_id)
     pipe.zadd(key, timestamp, event_json)
