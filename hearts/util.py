@@ -35,6 +35,10 @@ def ticket_key(ticket_id):
     return redis_key("ticket", ticket_id)
 
 
+def player_key(player_id):
+    return redis_key("players", player_id)
+
+
 def redis_key(*args):
     args = map(str, args)
     args = map(lambda x: x.replace("\\", "\\\\"), args)

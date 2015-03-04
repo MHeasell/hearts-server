@@ -1,6 +1,6 @@
 from redis import WatchError
 
-from hearts.util import redis_key
+from hearts.util import player_key
 
 
 class PlayerStateError(Exception):
@@ -14,7 +14,7 @@ class PlayerService(object):
         self.redis = redis
 
     def get_player(self, player_id):
-        key = redis_key("players", player_id)
+        key = player_key(player_id)
         data = self.redis.hgetall(key)
         if data is None:
             return None
@@ -51,7 +51,7 @@ class PlayerService(object):
 
                     player_id = int(self.redis.get("next_player_id") or "1")
 
-                    player_key = redis_key("players", player_id)
+                    key = player_key(player_id)
 
                     player_map = {
                         "id": player_id,
@@ -61,7 +61,7 @@ class PlayerService(object):
 
                     pipe.multi()
                     pipe.hset("usernames", name, player_id)
-                    pipe.hmset(player_key, player_map)
+                    pipe.hmset(key, player_map)
                     pipe.set("next_player_id", player_id + 1)
                     pipe.execute()
                     return player_id
