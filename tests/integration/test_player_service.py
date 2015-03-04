@@ -5,7 +5,7 @@ from test_utils import redis_utils
 from hearts.services.player import PlayerService, PlayerStateError
 
 
-class TestTicketService(unittest.TestCase):
+class TestPlayerService(unittest.TestCase):
 
     redis_process = None  # this is here to stop IDE complaining
 
@@ -18,7 +18,7 @@ class TestTicketService(unittest.TestCase):
         cls.redis_process.close()
 
     def setUp(self):
-        self.redis = TestTicketService.redis_process.create_connection()
+        self.redis = TestPlayerService.redis_process.create_connection()
         self.svc = PlayerService(self.redis)
 
     def tearDown(self):
