@@ -21,6 +21,10 @@ class GameNotFoundError(Exception):
     pass
 
 
+class RoundNotFoundError(Exception):
+    pass
+
+
 class GameEventQueueService(object):
 
     def __init__(self, redis):
@@ -130,8 +134,8 @@ class GameService(object):
 
         self.redis.hset(key, "current_round", round_number)
 
-    def get_round_service(self, game_id, round_number):
-        return GameRoundService(self.redis, game_id, round_number)
+    def get_round_service(self, game_id):
+        return GameRoundService(self.redis, game_id)
 
     def add_to_scores(self, game_id, score_dict):
         players = score_dict.keys()
@@ -174,26 +178,51 @@ class GameService(object):
 
 
 class GameRoundService(object):
-    def __init__(self, redis, game_id, round_number):
+    def __init__(self, redis, game_id):
         self.redis = redis
         self.game_id = game_id
-        self.round_number = round_number
 
-    def set_hands(self, players, hands):
+    def create_round(self, hands):
+        game_key = _game_key(self.game_id)
+        prev_round_id = int(self.redis.hget(game_key, "current_round"))
+
+        round_id = prev_round_id + 1
+
+        round_data = {
+            "id": round_id,
+            "state": "passing"
+        }
+
         with self.redis.pipeline() as pipe:
             # set everyone's hand
-            for (player, hand) in zip(players, hands):
-                pipe.sadd(self._hand_key(player), *hand)
+            for player, hand in hands.iteritems():
+                pipe.sadd(self._hand_key(round_id, player), *hand)
+
+            pipe.hmset(self._round_key(round_id), round_data)
+            pipe.hset(game_key, "current_round", round_id)
 
             pipe.execute()
 
-    def get_hand(self, player_name):
+        return round_id
+
+    def get_round(self, round_id):
+        data = self.redis.hgetall(self._round_key(round_id))
+
+        data["id"] = int(data["id"])
+
+        return data
+
+    def get_hand(self, round_id, player_name):
         """
         Fetches the set of cards in the player's hand.
+        :param round_id: The round we should fetch a hand from.
         :param player_name: The name of the player whose hand we should fetch.
         :return: A set instance containing the cards in the hand.
         """
-        key = self._hand_key(player_name)
+        if not self.redis.exists(self._round_key(round_id)):
+            raise RoundNotFoundError()
+
+        key = self._hand_key(round_id, player_name)
         return self.redis.smembers(key)
 
     def has_received_cards(self, player_name):
@@ -201,14 +230,15 @@ class GameRoundService(object):
 
         return self.redis.scard(key) > 0
 
-    def get_passed_cards(self, player_name):
+    def get_passed_cards(self, round_id, player_name):
         """
         Fetches the cards that this player was passed.
         Returns empty set if there are no cards yet.
+        :param round_id: The round to fetch from.
         :param player_name: The name of the player.
         :return: The set of passed cards.
         """
-        key = self._received_cards_key(player_name)
+        key = self._received_cards_key(round_id, player_name)
         return self.redis.smembers(key)
 
     def have_all_received_cards(self, *players):
@@ -223,12 +253,12 @@ class GameRoundService(object):
 
         return True
 
-    def pass_cards(self, from_player, to_player, cards):
-        requester_hand_key = self._hand_key(from_player)
-        target_passed_cards_key = self._received_cards_key(to_player)
+    def pass_cards(self, round_id, from_player, to_player, cards):
+        requester_hand_key = self._hand_key(round_id, from_player)
+        target_passed_cards_key = self._received_cards_key(round_id, to_player)
 
-        requester_has_passed_key = self._passed_key(from_player)
-        target_has_received_key = self._received_key(to_player)
+        requester_has_passed_key = self._passed_key(round_id, from_player)
+        target_has_received_key = self._received_key(round_id, to_player)
 
         with self.redis.pipeline() as pipe:
             while True:
@@ -268,10 +298,15 @@ class GameRoundService(object):
                 except WatchError:
                     continue
 
-    def play_card(self, pile_number, player, card):
-        pile_key = self._pile_key(pile_number)
-        player_hand_key = self._hand_key(player)
-        passed_cards_key = self._received_cards_key(player)
+    def play_card(self, round_id, pile_number, player, card):
+        round_data = self.get_round(round_id)
+
+        if round_data["state"] != "playing":
+            raise GameStateError("round is not in the playing state")
+
+        pile_key = self._pile_key(round_id, pile_number)
+        player_hand_key = self._hand_key(round_id, player)
+        passed_cards_key = self._received_cards_key(round_id, player)
 
         with self.redis.pipeline() as pipe:
             while True:
@@ -317,51 +352,54 @@ class GameRoundService(object):
 
             return pipe.execute()
 
-    def _pile_key(self, pile_number):
+    def _round_key(self, round_id):
+        return redis_key("game", self.game_id, "rounds", round_id)
+
+    def _pile_key(self, round_id, pile_number):
         return redis_key(
             "game",
             self.game_id,
             "rounds",
-            self.round_number,
+            round_id,
             "piles",
             pile_number)
 
-    def _hand_key(self, player):
+    def _hand_key(self, round_id, player):
         return redis_key(
             "game",
             self.game_id,
             "rounds",
-            self.round_number,
+            round_id,
             "players",
             player,
             "hand")
 
-    def _received_cards_key(self, player):
+    def _received_cards_key(self, round_id, player):
         return redis_key(
             "game",
             self.game_id,
             "rounds",
-            self.round_number,
+            round_id,
             "players",
             player,
             "passed_cards")
 
-    def _received_key(self, player):
+    def _received_key(self, round_id, player):
         return redis_key(
             "game",
             self.game_id,
             "rounds",
-            self.round_number,
+            round_id,
             "players",
             player,
             "has_received_cards")
 
-    def _passed_key(self, player):
+    def _passed_key(self, round_id, player):
         return redis_key(
             "game",
             self.game_id,
             "rounds",
-            self.round_number,
+            round_id,
             "players",
             player,
             "has_passed_cards")
