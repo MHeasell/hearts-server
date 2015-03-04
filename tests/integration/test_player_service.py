@@ -28,9 +28,14 @@ class TestPlayerService(unittest.TestCase):
         player_id = self.svc.create_player("Joe")
         player = self.svc.get_player(player_id)
 
-        self.assertEqual(player_id, player["id"])
-        self.assertEqual("Joe", player["name"])
-        self.assertEqual("idle", player["status"])
+        expected = {
+            "id": player_id,
+            "name": "Joe",
+            "status": "idle",
+            "current_game": None
+        }
+
+        self.assertEqual(expected, player)
 
     def test_create_player_duplicate(self):
         self.svc.create_player("Jimbob")

@@ -20,6 +20,7 @@ class PlayerService(object):
             return None
 
         data["id"] = int(data["id"])
+        data["current_game"] = data.get("current_game")
 
         return data
 
