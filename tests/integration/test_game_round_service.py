@@ -97,6 +97,22 @@ class TestGameRoundService(unittest.TestCase):
         except AccessDeniedError:
             pass  # test succeeded
 
+    def test_access_passed_cards_before_play_after_pass(self):
+        """
+        Shouldn't be able to get a player's received cards
+        before *everyone* has passed cards.
+        """
+        round_id = self.round_svc.create_round(example_hands)
+
+        self.round_svc.pass_cards(round_id, 1001, 1002, ["h5", "s7", "c2"])
+        self.round_svc.pass_cards(round_id, 1004, 1001, ["d4", "c8", "h9"])
+
+        try:
+            self.round_svc.get_passed_cards(round_id, 1001)
+            self.fail()
+        except AccessDeniedError:
+            pass  # test succeeded
+
     def test_pass_cards_twice(self):
         round_id = self.round_svc.create_round(example_hands)
 

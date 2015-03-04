@@ -188,6 +188,9 @@ class GameRoundService(object):
 
         round_id = prev_round_id + 1
 
+        received_key = self._received_key(round_id)
+        passed_key = self._passed_key(round_id)
+
         round_data = {
             "id": round_id,
             "state": "passing"
@@ -200,6 +203,10 @@ class GameRoundService(object):
 
             pipe.hmset(self._round_key(round_id), round_data)
             pipe.hset(game_key, "current_round", round_id)
+
+            for player in hands.iterkeys():
+                pipe.hset(received_key, player, 0)
+                pipe.hset(passed_key, player, 0)
 
             pipe.execute()
 
@@ -243,7 +250,7 @@ class GameRoundService(object):
     def have_all_received_cards(self, round_id):
         data = self.redis.hgetall(self._received_key(round_id))
         for v in data.values():
-            if int(v) == 0:
+            if v == "0":
                 return False
         return True
 
@@ -263,7 +270,7 @@ class GameRoundService(object):
 
                     # check that the target player has not already
                     # been given cards
-                    if pipe.scard(target_passed_cards_key) != 0:
+                    if pipe.hget(has_received_key, to_player) == "1":
                         err = "Player {0} has already been passed cards."
                         raise GameStateError(err.format(to_player))
 
