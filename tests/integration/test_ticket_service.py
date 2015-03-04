@@ -11,14 +11,14 @@ class TestTicketService(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.redis_process = redis_utils.create_redis_test_process()
+        cls.redis_process = redis_utils.RedisTestService()
 
     @classmethod
     def tearDownClass(cls):
-        cls.redis_process.terminate()
+        cls.redis_process.close()
 
     def setUp(self):
-        self.redis = redis_utils.create_redis_test_connection()
+        self.redis = TestTicketService.redis_process.create_connection()
         self.svc = TicketService(self.redis)
 
     def tearDown(self):
