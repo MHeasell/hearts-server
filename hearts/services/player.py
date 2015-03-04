@@ -1,27 +1,11 @@
-from uuid import uuid4
-
 from redis import WatchError
 
-from hearts.util import redis_key, ticket_key
+from hearts.util import redis_key
 
 
 class PlayerStateError(Exception):
     def __init__(self, msg=""):
         self.message = msg
-
-
-class TicketService(object):
-
-    def __init__(self, redis):
-        self.redis = redis
-
-    def get_player_from_ticket(self, ticket):
-        return self.redis.get(ticket_key(ticket))
-
-    def create_ticket_for(self, player):
-        ticket = str(uuid4())
-        self.redis.set(ticket_key(ticket), player)
-        return ticket
 
 
 class PlayerService(object):

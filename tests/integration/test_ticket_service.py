@@ -2,7 +2,7 @@ import unittest
 
 from test_utils import redis_utils
 
-from hearts.services.player import TicketService
+from hearts.services.ticket import TicketService
 
 
 class TestTicketService(unittest.TestCase):
@@ -26,7 +26,7 @@ class TestTicketService(unittest.TestCase):
 
     def test_ticket_get_set(self):
         ticket = self.svc.create_ticket_for("Bob")
-        name = self.svc.get_player_from_ticket(ticket)
+        name = self.svc.get_value(ticket)
 
         self.assertEqual("Bob", name)
 
@@ -35,9 +35,9 @@ class TestTicketService(unittest.TestCase):
         james_ticket = self.svc.create_ticket_for("James")
         bob_ticket = self.svc.create_ticket_for("Bob")
 
-        self.assertEqual("Jimbo", self.svc.get_player_from_ticket(jimbo_ticket))
-        self.assertEqual("James", self.svc.get_player_from_ticket(james_ticket))
-        self.assertEqual("Bob", self.svc.get_player_from_ticket(bob_ticket))
+        self.assertEqual("Jimbo", self.svc.get_value(jimbo_ticket))
+        self.assertEqual("James", self.svc.get_value(james_ticket))
+        self.assertEqual("Bob", self.svc.get_value(bob_ticket))
 
 
 if __name__ == '__main__':
