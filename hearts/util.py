@@ -4,6 +4,8 @@ from collections import defaultdict
 
 import json
 
+from redis import WatchError
+
 
 def gen_deck():
     return [s + str(num)
@@ -29,6 +31,16 @@ def deal_hands():
 
 def is_card(identifier):
     return identifier in DECK
+
+
+def retry_transaction(redis, func, *args, **kwargs):
+    with redis.pipeline() as pipe:
+        while True:
+            try:
+                result = func(pipe, *args, **kwargs)
+                return result
+            except WatchError:
+                continue
 
 
 def ticket_key(ticket_id):

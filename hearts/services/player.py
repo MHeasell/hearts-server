@@ -1,6 +1,4 @@
-from redis import WatchError
-
-from hearts.util import player_key
+from hearts.util import player_key, retry_transaction
 
 
 class PlayerStateError(Exception):
@@ -40,31 +38,32 @@ class PlayerService(object):
         return self.get_player(player_id)
 
     def create_player(self, name):
-        with self.redis.pipeline() as pipe:
-            while True:
-                try:
-                    pipe.watch("usernames", "next_player_id")
+        return retry_transaction(
+            self.redis,
+            self._create_player_transaction,
+            name)
 
-                    existing_id = self.redis.hget("usernames", name)
+    def _create_player_transaction(self, pipe, name):
+        pipe.watch("usernames", "next_player_id")
 
-                    if existing_id is not None:
-                        raise PlayerStateError("Player already exists.")
+        existing_id = self.redis.hget("usernames", name)
 
-                    player_id = int(self.redis.get("next_player_id") or "1")
+        if existing_id is not None:
+            raise PlayerStateError("Player already exists.")
 
-                    key = player_key(player_id)
+        player_id = int(self.redis.get("next_player_id") or "1")
 
-                    player_map = {
-                        "id": player_id,
-                        "name": name,
-                        "status": "idle"
-                    }
+        key = player_key(player_id)
 
-                    pipe.multi()
-                    pipe.hset("usernames", name, player_id)
-                    pipe.hmset(key, player_map)
-                    pipe.set("next_player_id", player_id + 1)
-                    pipe.execute()
-                    return player_id
-                except WatchError:
-                    continue
+        player_map = {
+            "id": player_id,
+            "name": name,
+            "status": "idle"
+        }
+
+        pipe.multi()
+        pipe.hset("usernames", name, player_id)
+        pipe.hmset(key, player_map)
+        pipe.set("next_player_id", player_id + 1)
+        pipe.execute()
+        return player_id

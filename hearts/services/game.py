@@ -2,7 +2,7 @@ import json
 
 from redis import WatchError
 
-from hearts.util import redis_key
+from hearts.util import redis_key, retry_transaction
 from hearts.keys import GAME_EVENTS_QUEUE_KEY
 
 import time
@@ -261,43 +261,38 @@ class GameRoundService(object):
         has_passed_key = self._passed_key(round_id)
         has_received_key = self._received_key(round_id)
 
-        with self.redis.pipeline() as pipe:
-            while True:
-                try:
-                    # Make sure the cards don't change while we're doing this
-                    pipe.watch(requester_hand_key)
-                    pipe.watch(target_passed_cards_key)
+        def transact(pipe):
+            # Make sure the cards don't change while we're doing this
+            pipe.watch(requester_hand_key)
+            pipe.watch(target_passed_cards_key)
 
-                    # check that the target player has not already
-                    # been given cards
-                    if pipe.hget(has_received_key, to_player) == "1":
-                        err = "Player {0} has already been passed cards."
-                        raise GameStateError(err.format(to_player))
+            # check that the target player has not already
+            # been given cards
+            if pipe.hget(has_received_key, to_player) == "1":
+                err = "Player {0} has already been passed cards."
+                raise GameStateError(err.format(to_player))
 
-                    # check that the cards are in the requester's hand
-                    for c in cards:
-                        if not pipe.sismember(requester_hand_key, c):
-                            err = "{0}'s hand does not contain card {1}."
-                            raise GameStateError(err.format(from_player, c))
+            # check that the cards are in the requester's hand
+            for c in cards:
+                if not pipe.sismember(requester_hand_key, c):
+                    err = "{0}'s hand does not contain card {1}."
+                    raise GameStateError(err.format(from_player, c))
 
-                    pipe.multi()
+            pipe.multi()
 
-                    # remove the cards from the requester's hand
-                    pipe.srem(requester_hand_key, *cards)
+            # remove the cards from the requester's hand
+            pipe.srem(requester_hand_key, *cards)
 
-                    # add the cards to the target's passed cards collection
-                    pipe.sadd(target_passed_cards_key, *cards)
+            # add the cards to the target's passed cards collection
+            pipe.sadd(target_passed_cards_key, *cards)
 
-                    # mark each player has having passed/received
-                    pipe.hset(has_passed_key, from_player, 1)
-                    pipe.hset(has_received_key, to_player, 1)
+            # mark each player has having passed/received
+            pipe.hset(has_passed_key, from_player, 1)
+            pipe.hset(has_received_key, to_player, 1)
 
-                    pipe.execute()
+            pipe.execute()
 
-                    break
-
-                except WatchError:
-                    continue
+        retry_transaction(self.redis, transact)
 
         if self.have_all_received_cards(round_id):
             self.redis.hset(self._round_key(round_id), "state", "playing")

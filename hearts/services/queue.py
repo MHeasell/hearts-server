@@ -1,12 +1,21 @@
 import time
 
-from redis import WatchError
-
 from hearts.keys import QUEUE_KEY, QUEUE_CHANNEL_KEY
 
-from hearts.util import redis_key
+from hearts.util import retry_transaction
 
-from hearts.services.player import PlayerStateError
+
+def _try_pop_players_transaction(pipe, count):
+    pipe.watch(QUEUE_KEY)
+    players = pipe.zrange(QUEUE_KEY, 0, count - 1)
+    if len(players) < count:
+        return None
+
+    pipe.multi()
+    pipe.zrem(QUEUE_KEY, *players)
+    pipe.execute()
+
+    return players
 
 
 class QueueService(object):
@@ -23,18 +32,12 @@ class QueueService(object):
             pipe.execute()
 
     def try_pop_players(self, count):
-        with self.redis.pipeline() as pipe:
-            while True:
-                try:
-                    pipe.watch(QUEUE_KEY)
-                    players = pipe.zrange(QUEUE_KEY, 0, count - 1)
-                    if len(players) < count:
-                        return None
+        players = retry_transaction(
+            self.redis,
+            _try_pop_players_transaction,
+            count)
 
-                    pipe.multi()
-                    pipe.zrem(QUEUE_KEY, *players)
-                    pipe.execute()
+        if players is None:
+            return None
 
-                    return map(int, players)
-                except WatchError:
-                    continue
+        return map(int, players)
