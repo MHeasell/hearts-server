@@ -29,24 +29,57 @@ class PlayerService(object):
     def __init__(self, redis):
         self.redis = redis
 
-    def get_current_game(self, player):
-        game_key = redis_key("player", player, "current_game")
-        return self.redis.get(game_key)
+    def get_player(self, player_id):
+        key = redis_key("players", player_id)
+        data = self.redis.hgetall(key)
+        if data is None:
+            return None
 
-    def create_player(self, player):
-        player_key = redis_key("player", player)
+        data["id"] = int(data["id"])
 
+        return data
+
+    def get_player_id(self, name):
+        player_id = self.redis.hget("usernames", name)
+        if player_id is None:
+            return None
+
+        return int(player_id)
+
+    def get_player_by_name(self, name):
+        player_id = self.get_player_id(name)
+
+        if player_id is None:
+            return None
+
+        return self.get_player(player_id)
+
+    def create_player(self, name):
         with self.redis.pipeline() as pipe:
             while True:
                 try:
-                    pipe.watch(player_key)
+                    pipe.watch("usernames", "next_player_id")
 
-                    if pipe.get(player_key) is not None:
+                    existing_id = self.redis.hget("usernames", name)
+
+                    if existing_id is not None:
                         raise PlayerStateError("Player already exists.")
 
+                    player_id = int(self.redis.get("next_player_id") or "1")
+
+                    player_key = redis_key("players", player_id)
+
+                    player_map = {
+                        "id": player_id,
+                        "name": name,
+                        "status": "idle"
+                    }
+
                     pipe.multi()
-                    pipe.set(player_key, "1")
+                    pipe.hset("usernames", name, player_id)
+                    pipe.hmset(player_key, player_map)
+                    pipe.set("next_player_id", player_id + 1)
                     pipe.execute()
-                    break
+                    return player_id
                 except WatchError:
                     continue
