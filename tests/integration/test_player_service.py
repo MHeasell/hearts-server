@@ -48,6 +48,23 @@ class TestPlayerService(unittest.TestCase):
         except PlayerStateError:
             pass  # test passed
 
+    def test_create_player_duplicate_ids(self):
+        """
+        Test that we don't skip ID numbers
+        when failing to create a player
+        due to duplicate name.
+        """
+        first_id = self.svc.create_player("Joe")
+
+        try:
+            self.svc.create_player("Joe")
+        except PlayerStateError:
+            pass
+
+        second_id = self.svc.create_player("Charlie")
+
+        self.assertEqual(first_id + 1, second_id)
+
     def test_get_id(self):
         player_id = self.svc.create_player("Steve")
         fetched_id = self.svc.get_player_id("Steve")
@@ -61,6 +78,18 @@ class TestPlayerService(unittest.TestCase):
         self.assertEqual(player_id, player["id"])
         self.assertEqual("Jimmy", player["name"])
         self.assertEqual("idle", player["status"])
+
+    def test_ids_not_equal(self):
+        j_id = self.svc.create_player("Jimmy")
+        b_id = self.svc.create_player("Bob")
+
+        self.assertNotEqual(b_id, j_id)
+
+        jimmy = self.svc.get_player(j_id)
+        bob = self.svc.get_player(b_id)
+
+        self.assertEqual("Jimmy", jimmy["name"])
+        self.assertEqual("Bob", bob["name"])
 
 
 if __name__ == '__main__':
