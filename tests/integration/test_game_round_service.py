@@ -119,7 +119,7 @@ class TestGameRoundService(unittest.TestCase):
         self.round_svc.pass_cards(round_id, 1001, 1002, ["h5", "s7", "c2"])
 
         try:
-            self.round_svc.pass_cards(round_id, 1001, 1002, ["h5", "s7", "c2"])
+            self.round_svc.pass_cards(round_id, 1001, 1002, ["h1", "d2", "h8"])
             self.fail()
         except GameStateError:
             pass  # test succeeded
