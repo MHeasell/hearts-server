@@ -225,11 +225,6 @@ class GameRoundService(object):
         key = self._hand_key(round_id, player_name)
         return self.redis.smembers(key)
 
-    def has_received_cards(self, player_name):
-        key = self._received_cards_key(player_name)
-
-        return self.redis.scard(key) > 0
-
     def get_passed_cards(self, round_id, player_name):
         """
         Fetches the cards that this player was passed.
@@ -238,27 +233,26 @@ class GameRoundService(object):
         :param player_name: The name of the player.
         :return: The set of passed cards.
         """
+        round_key = self._round_key(round_id)
+        if self.redis.hget(round_key, "state") == "passing":
+            raise AccessDeniedError()
+
         key = self._received_cards_key(round_id, player_name)
         return self.redis.smembers(key)
 
-    def have_all_received_cards(self, *players):
-        with self.redis.pipeline() as pipe:
-            for player in players:
-                pipe.get(self._received_key(player))
-            result = pipe.execute()
-
-        for r in result:
-            if not r:
+    def have_all_received_cards(self, round_id):
+        data = self.redis.hgetall(self._received_key(round_id))
+        for v in data.values():
+            if int(v) == 0:
                 return False
-
         return True
 
     def pass_cards(self, round_id, from_player, to_player, cards):
         requester_hand_key = self._hand_key(round_id, from_player)
         target_passed_cards_key = self._received_cards_key(round_id, to_player)
 
-        requester_has_passed_key = self._passed_key(round_id, from_player)
-        target_has_received_key = self._received_key(round_id, to_player)
+        has_passed_key = self._passed_key(round_id)
+        has_received_key = self._received_key(round_id)
 
         with self.redis.pipeline() as pipe:
             while True:
@@ -288,8 +282,8 @@ class GameRoundService(object):
                     pipe.sadd(target_passed_cards_key, *cards)
 
                     # mark each player has having passed/received
-                    pipe.set(requester_has_passed_key, True)
-                    pipe.set(target_has_received_key, True)
+                    pipe.hset(has_passed_key, from_player, 1)
+                    pipe.hset(has_received_key, to_player, 1)
 
                     pipe.execute()
 
@@ -297,6 +291,9 @@ class GameRoundService(object):
 
                 except WatchError:
                     continue
+
+        if self.have_all_received_cards(round_id):
+            self.redis.hset(self._round_key(round_id), "state", "playing")
 
     def play_card(self, round_id, pile_number, player, card):
         round_data = self.get_round(round_id)
@@ -384,22 +381,18 @@ class GameRoundService(object):
             player,
             "passed_cards")
 
-    def _received_key(self, round_id, player):
+    def _received_key(self, round_id):
         return redis_key(
             "game",
             self.game_id,
             "rounds",
             round_id,
-            "players",
-            player,
             "has_received_cards")
 
-    def _passed_key(self, round_id, player):
+    def _passed_key(self, round_id):
         return redis_key(
             "game",
             self.game_id,
             "rounds",
             round_id,
-            "players",
-            player,
             "has_passed_cards")
