@@ -1,12 +1,9 @@
-from uuid import uuid4
 import json
 
 from redis import WatchError
 
 from hearts.util import redis_key
-from hearts.keys import GAME_EVENTS_QUEUE_KEY, QUEUE_KEY
-
-from hearts.services.player import PlayerStateError
+from hearts.keys import GAME_EVENTS_QUEUE_KEY
 
 import time
 
@@ -18,6 +15,10 @@ class AccessDeniedError(Exception):
 class GameStateError(Exception):
     def __init__(self, msg=""):
         self.message = msg
+
+
+class GameNotFoundError(Exception):
+    pass
 
 
 class GameEventQueueService(object):
@@ -46,12 +47,16 @@ class GameEventQueueService(object):
         self.redis.lpush(GAME_EVENTS_QUEUE_KEY, ",".join(map(str, data)))
 
 
+def _game_key(game_id):
+    return redis_key("game", game_id)
+
+
 def _players_key(game_id):
         return redis_key("game", game_id, "players")
 
 
-def _score_key(game_id, player):
-    return redis_key("game", game_id, "players", player, "score")
+def _scores_key(game_id):
+    return redis_key("game", game_id, "scores")
 
 
 def _events_key(game_id):
@@ -79,57 +84,51 @@ class GameService(object):
         self.redis = redis
 
     def create_game(self, players):
-        game_id = str(uuid4())
 
         with self.redis.pipeline() as pipe:
-            while True:
-                try:
-                    # guard against queue changes
-                    pipe.watch(QUEUE_KEY)
+            pipe.watch("next_game_id")
 
-                    # check that the players are in the queue
-                    for player in players:
-                        if pipe.zscore(QUEUE_KEY, player) is None:
-                            raise PlayerStateError("Player is not in the queue.")
+            game_id = int(pipe.get("next_game_id") or "1")
 
-                    pipe.multi()
+            game_data = {"id": game_id, "current_round": 0}
 
-                    # add the players to the game players list
-                    pipe.rpush(_players_key(game_id), *players)
+            score_data = dict(zip(players, [0] * len(players)))
 
-                    # set each player's current game to this
-                    for player in players:
-                        key = redis_key("player", player, "current_game")
-                        pipe.set(key, game_id)
+            pipe.multi()
+            pipe.hmset(_game_key(game_id), game_data)
+            pipe.hmset(_scores_key(game_id), score_data)
+            pipe.rpush(_players_key(game_id), *players)
+            pipe.set("next_game_id", game_id + 1)
+            pipe.execute()
 
-                    # remove the players from the queue
-                    pipe.zrem(QUEUE_KEY, *players)
+            return game_id
 
-                    pipe.execute()
+    def get_game(self, game_id):
+        key = _game_key(game_id)
+        scores_key = _scores_key(game_id)
 
-                    return game_id
+        with self.redis.pipeline() as pipe:
+            pipe.hgetall(key)
+            pipe.lrange(_players_key(game_id), 0, -1)
+            pipe.hgetall(scores_key)
+            data, players, scores = pipe.execute()
 
-                except WatchError:
-                    continue
+        if data is None:
+            return None
 
-    def get_players(self, game_id):
-        """
-        Fetches the list of players for the game.
-        :return: The list of players.
-        If the game does not exist, the list will be empty.
-        """
-        return self.redis.lrange(_players_key(game_id), 0, -1)
+        data["id"] = int(data["id"])
+        data["current_round"] = int(data["current_round"])
+        data["players"] = [{"id": int(p), "score": int(scores[p])} for p in players]
 
-    def get_player(self, game_id, player_number):
-        return self.redis.lindex(_players_key(game_id), player_number - 1)
-
-    def get_current_round(self, game_id):
-        key = redis_key("game", game_id, "current_round")
-        return int(self.redis.get(key))
+        return data
 
     def set_current_round(self, game_id, round_number):
-        key = redis_key("game", game_id, "current_round")
-        self.redis.set(key, round_number)
+        key = _game_key(game_id)
+
+        if not self.redis.exists(key):
+            raise GameNotFoundError()
+
+        self.redis.hset(key, "current_round", round_number)
 
     def get_round_service(self, game_id, round_number):
         return GameRoundService(self.redis, game_id, round_number)
@@ -137,12 +136,12 @@ class GameService(object):
     def add_to_scores(self, game_id, score_dict):
         players = score_dict.keys()
         with self.redis.pipeline() as pipe:
+            key = _scores_key(game_id)
             for player in players:
-                key = _score_key(game_id, player)
-                pipe.incrby(key, score_dict[player])
+                pipe.hincrby(key, player, score_dict[player])
             new_scores = pipe.execute()
 
-        return dict(zip(players, new_scores))
+        return dict(zip(players, map(int, new_scores)))
 
     def get_events(self, game_id):
         return self.redis.zrange(_events_key(game_id), 0, -1)
