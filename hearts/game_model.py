@@ -32,34 +32,33 @@ class PlayersYetToPassError(GameStateError):
 class HeartsGame(object):
 
     def __init__(self):
-        self.state = "init"
-        self.hands = [None, None, None, None]
-        self.passed_cards = [None, None, None, None]
-        self.current_player = None
+        pass
 
     def get_score(self, player_index):
         return 0
 
-    def start_round(self, hands):
-        for i in range(4):
-            self.hands[i] = list(hands[i])
 
-        self.state = "round"
+class HeartsRound(object):
+
+    def __init__(self, hands):
+        self.hands = [None, None, None, None]
+        self.passed_cards = [None, None, None, None]
+        self.state = "passing"
+        self.current_player = None
+
+        for i, hand in enumerate(hands):
+            self.hands[i] = list(hand)
 
     def get_hand(self, player_index):
-        if self.state == "init":
+        return self.hands[player_index][:]
+
+    def get_current_player(self):
+        if self.state == "passing":
             raise RoundNotInProgressError()
 
-        hand = self.hands[player_index]
-        if hand is None:
-            return None
-
-        return hand[:]  # make a copy
+        return self.current_player
 
     def pass_cards(self, player_index, cards):
-        if self.state == "init":
-            raise RoundNotInProgressError()
-
         if self.passed_cards[player_index] is not None:
             raise CardsAlreadyPassedError()
 
@@ -91,10 +90,4 @@ class HeartsGame(object):
         assert self.current_player is not None
 
         # move to playing state
-        self.state = "round-playing"
-
-    def get_current_player(self):
-        if self.state == "init" or self.state == "round":
-            raise RoundNotInProgressError()
-
-        return self.current_player
+        self.state = "playing"
