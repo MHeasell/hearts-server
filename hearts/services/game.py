@@ -182,6 +182,7 @@ class GameRoundService(object):
     def __init__(self, redis, game_id):
         self.redis = redis
         self.game_id = game_id
+        self.game_svc = GameService(self.redis)
 
     def create_round(self, hands):
         game_key = _game_key(self.game_id)
@@ -194,7 +195,8 @@ class GameRoundService(object):
 
         round_data = {
             "id": round_id,
-            "state": "passing"
+            "state": "passing",
+            "current_pile": 0
         }
 
         with self.redis.pipeline() as pipe:
@@ -217,6 +219,7 @@ class GameRoundService(object):
         data = self.redis.hgetall(self._round_key(round_id))
 
         data["id"] = int(data["id"])
+        data["current_pile"] = int(data["current_pile"])
 
         return data
 
@@ -306,13 +309,62 @@ class GameRoundService(object):
         retry_transaction(self.redis, transact)
 
         if self.have_all_received_cards(round_id):
-            self.redis.hset(self._round_key(round_id), "state", "playing")
+            self._on_finish_passing(round_id)
+
+    def _on_finish_passing(self, round_id):
+
+        with self.redis.pipeline() as pipe:
+            round_key = self._round_key(round_id)
+            pipe.hset(round_key, "state", "passing-completed")
+            pipe.execute()
+
+        players = self.game_svc.get_game(self.game_id)["players"]
+
+        start_player = None
+        for player in map(lambda x: x["id"], players):
+            hand = self.get_hand(round_id, player)
+            received_cards = self.get_passed_cards(round_id, player)
+            if "c2" in hand or "c2" in received_cards:
+                start_player = player
+                break
+
+        assert start_player is not None
+
+        self.create_pile(round_id, start_player)
+
+        with self.redis.pipeline() as pipe:
+            round_key = self._round_key(round_id)
+            pipe.hset(round_key, "state", "playing")
+            pipe.execute()
+
+    def create_pile(self, round_id, starting_player):
+        round_data = self.get_round(round_id)
+
+        pile_id = round_data["current_pile"] + 1
+        data = {
+            "id": pile_id,
+            "state": "open",
+            "current_player": starting_player,
+        }
+
+        self.redis.hmset(self._pile_data_key(round_id, pile_id), data)
+        self.redis.hset(self._round_key(round_id), "current_pile", pile_id)
+
+        return pile_id
 
     def play_card(self, round_id, pile_number, player, card):
         round_data = self.get_round(round_id)
 
         if round_data["state"] != "playing":
             raise GameStateError("round is not in the playing state")
+
+        if round_data["current_pile"] != pile_number:
+            raise GameStateError("this trick is not currently in play")
+
+        cur_player = self.redis.hget(self._pile_data_key(round_id, pile_number), "current_player")
+        cur_player = int(cur_player)
+        if cur_player != player:
+            raise GameStateError("it is not your turn")
 
         pile_key = self._pile_key(round_id, pile_number)
         player_hand_key = self._hand_key(round_id, player)
@@ -347,23 +399,39 @@ class GameRoundService(object):
                 except WatchError:
                     continue
 
-    def get_pile(self, pile_number):
-        key = self._pile_key(pile_number)
-        return self.redis.lrange(key, 0, -1)
+    def get_pile(self, round_id, pile_number):
+        key = self._pile_key(round_id, pile_number)
+        data = self.redis.lrange(key, 0, -1)
+        data = map(json.loads, data)
+        return data
 
-    def get_pile_card(self, pile_number, card_number):
-        key = self._pile_key(pile_number)
-        return self.redis.lindex(key, card_number - 1)
+    def get_pile_card(self, round_id, pile_number, card_number):
+        key = self._pile_key(round_id, pile_number)
+        data = self.redis.lindex(key, card_number - 1)
+        return json.loads(data)
 
-    def get_all_piles(self):
+    def get_all_piles(self, round_id):
+        cur_pile = self.get_round(round_id)["current_pile"]
         with self.redis.pipeline() as pipe:
-            for i in xrange(1, 14):
-                pipe.lrange(self._pile_key(i), 0, -1)
+            for i in xrange(1, cur_pile + 1):
+                pipe.lrange(self._pile_key(round_id, i), 0, -1)
 
-            return pipe.execute()
+            piles = pipe.execute()
+
+        return map(lambda x: map(json.loads, x), piles)
 
     def _round_key(self, round_id):
         return redis_key("game", self.game_id, "rounds", round_id)
+
+    def _pile_data_key(self, round_id, pile_id):
+        return redis_key(
+            "game",
+            self.game_id,
+            "rounds",
+            round_id,
+            "piles",
+            pile_id,
+            "data")
 
     def _pile_key(self, round_id, pile_number):
         return redis_key(

@@ -54,7 +54,8 @@ class TestGameRoundService(unittest.TestCase):
 
         expected = {
             "id": round_id,
-            "state": "passing"
+            "state": "passing",
+            "current_pile": 0
         }
 
         self.assertEqual(expected, data)
@@ -147,6 +148,56 @@ class TestGameRoundService(unittest.TestCase):
 
         try:
             self.round_svc.play_card(round_id, 1, 1001, "c2")
+            self.fail()
+        except GameStateError:
+            pass  # test succeeded
+
+    def test_play_card(self):
+        round_id = self.round_svc.create_round(example_hands)
+
+        self.round_svc.pass_cards(round_id, 1001, 1002, ["h5", "s7", "c2"])
+        self.round_svc.pass_cards(round_id, 1002, 1003, ["c10", "h6", "c3"])
+        self.round_svc.pass_cards(round_id, 1003, 1004, ["s6", "s10", "d1"])
+        self.round_svc.pass_cards(round_id, 1004, 1001, ["d4", "c8", "h9"])
+
+        self.round_svc.play_card(round_id, 1, 1002, "c2")
+
+        pile = self.round_svc.get_pile(round_id, 1)
+        expected = [{"player": 1002, "card": "c2"}]
+        self.assertEqual(expected, pile)
+
+        card = self.round_svc.get_pile_card(round_id, 1, 1)
+        expected_card = {"player": 1002, "card": "c2"}
+        self.assertEqual(expected_card, card)
+
+        all_piles = self.round_svc.get_all_piles(round_id)
+        expected_all_piles = [[{"player": 1002, "card": "c2"}]]
+        self.assertEqual(expected_all_piles, all_piles)
+
+    def test_play_card_wrong_pile(self):
+        round_id = self.round_svc.create_round(example_hands)
+
+        self.round_svc.pass_cards(round_id, 1001, 1002, ["h5", "s7", "c2"])
+        self.round_svc.pass_cards(round_id, 1002, 1003, ["c10", "h6", "c3"])
+        self.round_svc.pass_cards(round_id, 1003, 1004, ["s6", "s10", "d1"])
+        self.round_svc.pass_cards(round_id, 1004, 1001, ["d4", "c8", "h9"])
+
+        try:
+            self.round_svc.play_card(round_id, 2, 1002, "c2")
+            self.fail()
+        except GameStateError:
+            pass  # test succeeded
+
+    def test_play_card_not_our_turn(self):
+        round_id = self.round_svc.create_round(example_hands)
+
+        self.round_svc.pass_cards(round_id, 1001, 1002, ["h5", "s7", "c2"])
+        self.round_svc.pass_cards(round_id, 1002, 1003, ["c10", "h6", "c3"])
+        self.round_svc.pass_cards(round_id, 1003, 1004, ["s6", "s10", "d1"])
+        self.round_svc.pass_cards(round_id, 1004, 1001, ["d4", "c8", "h9"])
+
+        try:
+            self.round_svc.play_card(round_id, 1, 1001, "c5")
             self.fail()
         except GameStateError:
             pass  # test succeeded
