@@ -113,7 +113,7 @@ def compute_scores(piles):
 
 
 def get_pass_direction(round_number):
-    dirs = ["left", "right", "across", "none"];
+    dirs = ["left", "right", "across", "none"]
     idx = (round_number - 1) % 4
     return dirs[idx]
 
