@@ -84,6 +84,15 @@ class TestGameRoundService(unittest.TestCase):
 
         self.assertEqual({"h5", "s7", "c2"}, data)
 
+    def test_pass_cards_wrong_player(self):
+        round_id = self.round_svc.create_round(example_hands)
+
+        try:
+            self.round_svc.pass_cards(round_id, 1001, 1003, ["h5", "s7", "c2"])
+            self.fail()
+        except AccessDeniedError:
+            pass  # test succeeded
+
     def test_access_passed_cards_before_play(self):
         """
         Shouldn't be able to get a player's received cards

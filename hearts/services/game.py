@@ -2,6 +2,7 @@ import json
 
 from redis import WatchError
 
+import hearts.util as u
 from hearts.util import redis_key, retry_transaction
 from hearts.keys import GAME_EVENTS_QUEUE_KEY
 
@@ -260,6 +261,16 @@ class GameRoundService(object):
 
         has_passed_key = self._passed_key(round_id)
         has_received_key = self._received_key(round_id)
+
+        players = self.redis.lrange(_players_key(self.game_id), 0, -1)
+        players = map(int, players)
+
+        from_index = players.index(from_player)
+        to_index = players.index(to_player)
+        expected_to_index = (from_index + u.get_pass_offset(u.get_pass_direction(round_id))) % 4
+
+        if to_index != expected_to_index:
+            raise AccessDeniedError()
 
         def transact(pipe):
             # Make sure the cards don't change while we're doing this
