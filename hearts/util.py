@@ -129,6 +129,9 @@ def get_pass_offset(direction):
         return 0
 
 
+def get_suit(card):
+    return card[0]
+
 def _get_numeric_rank(str_rank):
     if str_rank == "j":
         return 11
