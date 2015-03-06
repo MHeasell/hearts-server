@@ -14,7 +14,7 @@ class PlayerService(object):
     def get_player(self, player_id):
         key = player_key(player_id)
         data = self.redis.hgetall(key)
-        if data is None:
+        if not data:
             return None
 
         data["id"] = int(data["id"])

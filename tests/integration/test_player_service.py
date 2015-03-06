@@ -24,6 +24,10 @@ class TestPlayerService(unittest.TestCase):
     def tearDown(self):
         self.redis.flushdb()
 
+    def test_get_player_not_found(self):
+        data = self.svc.get_player(1234)
+        self.assertIsNone(data)
+
     def test_create_player(self):
         player_id = self.svc.create_player("Joe")
         player = self.svc.get_player(player_id)
