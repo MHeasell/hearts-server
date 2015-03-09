@@ -1,7 +1,6 @@
 import unittest
 
 from hearts.model.round import HeartsRound
-from hearts.model.preround import HeartsPreRound
 import hearts.util as u
 import hearts.model.exceptions as m
 
@@ -298,15 +297,14 @@ class TestHeartsRound(unittest.TestCase):
         Tests that a player can play a card of a different suit
         if they cannot follow suit.
         """
-        pre = HeartsPreRound(example_hands, "left")
+        hands = [
+            ['d4', 'dj', 's9', 'h5', 'c2', 'h1', 'd2', 'h8', 'd3', 's2', 'd9', 'd8', 'dq'],
+            ['s7', 'c5', 'c4', 'c10', 'h6', 'c3', 'h10', 'hk', 'd7', 'dk', 'h4', 'sj', 'hq'],
+            ['hj', 's5', 'd5', 's6', 's10', 'd1', 'sk', 's4', 'h7', 'd10', 'c9', 'cq', 'cj'],
+            ['d6', 'h2', 'sq', 'c8', 'h9', 'ck', 'h3', 'c6', 's1', 'c1', 's3', 'c7', 's8']
+        ]
 
-        pre.pass_cards(0, ["s7", "c5", "c4"])
-        pre.pass_cards(1, ["hj", "s5", "d5"])
-        pre.pass_cards(2, ["d6", "h2", "sq"])
-        pre.pass_cards(3, ["d4", "dj", "s9"])
-        pre.finish_passing()
-
-        round = HeartsRound(pre.get_all_hands())
+        round = HeartsRound(hands)
 
         # get the first trick out of the way
         round.play_card("c2")
@@ -330,14 +328,15 @@ class TestHeartsRound(unittest.TestCase):
         Tests that once hearts is broken,
         it is possible to lead with a heart.
         """
-        pre = HeartsPreRound(example_hands, "left")
-        pre.pass_cards(0, ["s7", "c5", "c4"])
-        pre.pass_cards(1, ["hj", "s5", "d5"])
-        pre.pass_cards(2, ["d6", "h2", "sq"])
-        pre.pass_cards(3, ["d4", "dj", "s9"])
-        pre.finish_passing()
 
-        round = HeartsRound(pre.get_all_hands())
+        hands = [
+            ["d4", "dj", "s9", 'h5', 'c2', 'h1', 'd2', 'h8', 'd3', 's2', 'd9', 'd8', 'dq'],
+            ["s7", "c5", "c4", 'c10', 'h6', 'c3', 'h10', 'hk', 'd7', 'dk', 'h4', 'sj', 'hq'],
+            ["hj", "s5", "d5", 's6', 's10', 'd1', 'sk', 's4', 'h7', 'd10', 'c9', 'cq', 'cj'],
+            ["d6", "h2", "sq", 'c8', 'h9', 'ck', 'h3', 'c6', 's1', 'c1', 's3', 'c7', 's8']
+        ]
+
+        round = HeartsRound(hands)
 
         # get the first trick out of the way
         round.play_card("c2")
@@ -368,24 +367,24 @@ class TestHeartsRound(unittest.TestCase):
         """
         Tests that hearts cannot be played on the first trick
         """
-        pre = HeartsPreRound(example_hands, "left")
-        pre.pass_cards(0, ["c2", "c5", "c4"])
-        pre.pass_cards(1, ["hj", "s5", "d5"])
-        pre.pass_cards(2, ["d6", "h2", "sq"])
-        pre.pass_cards(3, ["d4", "dj", "s9"])
-        pre.finish_passing()
+        hands = [
+            ['h5', 's7', 'c2', 'h1', 'd2', 'c6', 'd3', 's2', 'd9', 'c5', 'd8', 'dq', 'c4'],
+            ['c10', 'h6', 'c3', 'h10', 'hk', 'ck', 'dk', 'h4', 'sj', 'hq', 'hj', 's5', 'd5'],
+            ['s6', 'c8', 'd1', 'sk', 's4', 'h7', 'd10', 'sq', 'c9', 'cq', 'c1', 'c7', 'cj'],
+            ['d4', 's10', 'h9', 'd7', 'h3', 'h8', 'dj', 's9', 's1', 'd6', 's3', 'h2', 's8']
+        ]
 
-        round = HeartsRound(pre.get_all_hands())
+        round = HeartsRound(hands)
 
-        # player 1 has the c2, so they start
+        # player 0 has the c2, so they start
         round.play_card("c2")
+        round.play_card("c10")
         round.play_card("c9")
-        round.play_card("c8")
 
         try:
-            # player 0 has no clubs,
+            # player 3 has no clubs,
             # but they cannot play a heart on the first trick
-            round.play_card("h5")
+            round.play_card("h9")
             self.fail()
         except m.InvalidMoveError:
             pass
@@ -394,17 +393,18 @@ class TestHeartsRound(unittest.TestCase):
         """
         Tests that the queen of spades cannot be played on the first trick
         """
-        pre = HeartsPreRound(example_hands, "across")
-        pre.pass_cards(0, ["c2", "c5", "c4"])
-        pre.pass_cards(1, ["hj", "s5", "d5"])
-        pre.pass_cards(2, ["d6", "h2", "sq"])
-        pre.pass_cards(3, ["d4", "dj", "s9"])
-        pre.finish_passing()
 
-        round = HeartsRound(pre.get_all_hands())
-        # player 2 has the c2, so they start
+        hands = [
+            ['h5', 's7', 'h6', 'h1', 'd2', 'h8', 'd3', 's9', 'd9', 'sj', 'd8', 'dq', 's5'],
+            ['c10', 'c2', 'c3', 'h10', 'hk', 'd7', 'dk', 'h4', 'c5', 'hq', 'hj', 'c4', 'd5'],
+            ['s6', 's10', 'd1', 'sk', 's4', 'h7', 'd10', 's2', 'c9', 'cq', 'd6', 'h2', 'cj'],
+            ['d4', 'c8', 'h9', 'ck', 'h3', 'c6', 'dj', 'sq', 's1', 'c1', 's3', 'c7', 's8']
+        ]
+
+        round = HeartsRound(hands)
+        # player 1 has the c2, so they start
         round.play_card("c2")
-        round.play_card("c8")
+        round.play_card("cq")
 
         try:
             # player 0 has no clubs,
