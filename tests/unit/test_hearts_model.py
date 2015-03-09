@@ -72,6 +72,25 @@ class TestHeartsRound(unittest.TestCase):
         except m.RoundNotInProgressError:
             pass  # test succeeded
 
+    def test_init_is_hearts_broken(self):
+        """
+        When still passing we should not be able to check whether hearts
+        has been broken.
+        """
+        round = HeartsRound(example_hands)
+        try:
+            round.is_hearts_broken()
+            self.fail()
+        except m.RoundNotInProgressError:
+            pass  # test succeeded
+
+    def test_init_play_is_hearts_broken(self):
+        """
+        When play initially starts, hearts should not be broken.
+        """
+        round = HeartsRound(example_hands, "none")
+        self.assertFalse(round.is_hearts_broken())
+
     def test_start_round_hand_modification(self):
         """
         The object should copy hands it takes in.
@@ -518,6 +537,91 @@ class TestHeartsRound(unittest.TestCase):
         except m.InvalidMoveError:
             pass  # test succeeded
 
+    def test_play_heart_not_broken(self):
+        """
+        Tests that a player cannot lead with a heart
+        when hearts has not been broken.
+        """
+        round = HeartsRound(example_hands, "none")
+
+        # get the first trick out of the way
+        round.play_card("c2")
+        round.play_card("c10")
+        round.play_card("c9")
+        round.play_card("c8")
+
+        # player 1 wins, next trick
+        try:
+            round.play_card("h6")
+            self.fail()
+        except m.InvalidMoveError:
+            pass  # test succeeded
+
+    def test_play_cannot_follow_suit(self):
+        """
+        Tests that a player can play a card of a different suit
+        if they cannot follow suit.
+        """
+        round = HeartsRound(example_hands, "left")
+        round.pass_cards(0, ["s7", "c5", "c4"])
+        round.pass_cards(1, ["hj", "s5", "d5"])
+        round.pass_cards(2, ["d6", "h2", "sq"])
+        round.pass_cards(3, ["d4", "dj", "s9"])
+        round.finish_passing()
+
+        # get the first trick out of the way
+        round.play_card("c2")
+        round.play_card("c10")
+        round.play_card("c9")
+        round.play_card("c8")
+
+        # player 1 to start now
+        self.assertEqual(1, round.get_current_player())
+
+        round.play_card("c3")
+        round.play_card("cj")
+        round.play_card("c7")
+        round.play_card("dq")  # player 0 has no clubs
+
+        # player 2 wins due to cj
+        self.assertEqual(2, round.get_current_player())
+
+    def test_play_break_hearts(self):
+        """
+        Tests that once hearts is broken,
+        it is possible to lead with a heart.
+        """
+        round = HeartsRound(example_hands, "left")
+        round.pass_cards(0, ["s7", "c5", "c4"])
+        round.pass_cards(1, ["hj", "s5", "d5"])
+        round.pass_cards(2, ["d6", "h2", "sq"])
+        round.pass_cards(3, ["d4", "dj", "s9"])
+        round.finish_passing()
+
+        # get the first trick out of the way
+        round.play_card("c2")
+        round.play_card("c10")
+        round.play_card("c9")
+        round.play_card("c8")
+
+        # player 1 to start now
+        self.assertEqual(1, round.get_current_player())
+
+        round.play_card("c3")
+        round.play_card("cj")
+        round.play_card("c7")
+        round.play_card("h5")  # player 0 has no clubs
+
+        # player 2 wins due to cj
+        self.assertEqual(2, round.get_current_player())
+
+        # check that hearts is broken
+        self.assertTrue(round.is_hearts_broken())
+
+        # player 2 can lead with a heart now
+        round.play_card("h7")
+
+        self.assertEqual([{"player":2, "card": "h7"}], round.get_trick())
 
 # TODO: more play card tests,
 # e.g. test following suit that isn't clubs,

@@ -58,6 +58,7 @@ class HeartsRound(object):
         self.pass_direction = pass_direction
         self.trick = []
         self.is_first_move = True
+        self._is_hearts_broken = False
 
         for i, hand in enumerate(hands):
             self.hands[i] = list(hand)
@@ -103,17 +104,26 @@ class HeartsRound(object):
         if self.state != "playing":
             raise RoundNotInProgressError()
 
-        if card not in self.hands[self.current_player]:
+        hand = self.hands[self.current_player]
+
+        if card not in hand:
             raise InvalidMoveError()
 
         if self.is_first_move and card != "c2":
             raise InvalidMoveError()
 
+        card_suit = u.get_suit(card)
         if len(self.trick) > 0:
             lead_suit = u.get_suit(self.trick[0]["card"])
-            card_suit = u.get_suit(card)
-            if lead_suit != card_suit:
+            hand_has_suit = any(map(lambda c: u.get_suit(c) == lead_suit, hand))
+            if hand_has_suit and lead_suit != card_suit:
                 raise InvalidMoveError()
+
+        if len(self.trick) == 0 and card_suit == "h" and not self._is_hearts_broken:
+            raise InvalidMoveError()
+
+        if card_suit == "h":
+            self._is_hearts_broken = True
 
         self.hands[self.current_player].remove(card)
         self.trick.append({"player": self.current_player, "card": card})
@@ -129,10 +139,16 @@ class HeartsRound(object):
 
         return self.trick[:]
 
+    def is_hearts_broken(self):
+        if self.state != "playing":
+            raise RoundNotInProgressError()
+
+        return self._is_hearts_broken
+
     def _finish_trick(self):
         # move onto the next trick
         winner = u.find_winning_index(map(lambda x: x["card"], self.trick))
-        self.current_player = winner
+        self.current_player = self.trick[winner]["player"]
         self.trick = []
 
     def _start_passing(self):
