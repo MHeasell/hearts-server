@@ -103,23 +103,37 @@ class HeartsRound(object):
         if self.state != "playing":
             raise RoundNotInProgressError()
 
+        if card not in self.hands[self.current_player]:
+            raise InvalidMoveError()
+
         if self.is_first_move and card != "c2":
             raise InvalidMoveError()
 
-        if u.get_suit(card) != "c":
-            raise InvalidMoveError()
-        #if len(self.trick) > 0 and u.get_suit(card) != u.get_suit(self.trick[0]["card"]):
-        #    raise InvalidMoveError()
+        if len(self.trick) > 0:
+            lead_suit = u.get_suit(self.trick[0]["card"])
+            card_suit = u.get_suit(card)
+            if lead_suit != card_suit:
+                raise InvalidMoveError()
 
+        self.hands[self.current_player].remove(card)
         self.trick.append({"player": self.current_player, "card": card})
         self.current_player = (self.current_player + 1) % 4
         self.is_first_move = False
+
+        if len(self.trick) == 4:
+            self._finish_trick()
 
     def get_trick(self):
         if self.state != "playing":
             raise RoundNotInProgressError()
 
         return self.trick[:]
+
+    def _finish_trick(self):
+        # move onto the next trick
+        winner = u.find_winning_index(map(lambda x: x["card"], self.trick))
+        self.current_player = winner
+        self.trick = []
 
     def _start_passing(self):
         self.passed_cards = [None, None, None, None]

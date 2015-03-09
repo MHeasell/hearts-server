@@ -422,6 +422,103 @@ class TestHeartsRound(unittest.TestCase):
         except m.InvalidMoveError:
             pass  # test succeeded
 
+    def test_finish_trick(self):
+        """
+        Tests that the next trick is set up properly
+        when a trick is finished.
+        """
+        round = HeartsRound(example_hands, "none")
+
+        # play the trick
+        round.play_card("c2")
+        round.play_card("c10")
+        round.play_card("c9")
+        round.play_card("c8")
+
+        # player 1 was the winner,
+        # so we expect them to be the current player
+        self.assertEqual(1, round.get_current_player())
+
+        # the trick should be empty now
+        self.assertEqual([], round.get_trick())
+
+    def test_finish_trick_winner(self):
+        """
+        Tests that the winner of the trick is properly set.
+        """
+        round = HeartsRound(example_hands, "none")
+
+        # play the trick
+        round.play_card("c2")
+        round.play_card("c10")
+        round.play_card("cq")
+        round.play_card("c8")
+
+        # player 2 was the winner,
+        # so we expect them to be the current player
+        self.assertEqual(2, round.get_current_player())
+
+    def test_play_follow_suit_not_clubs(self):
+        """
+        Players must follow suit
+        whatever suit the first card is.
+        """
+        round = HeartsRound(example_hands, "none")
+
+        # get the first trick out of the way
+        round.play_card("c2")
+        round.play_card("c10")
+        round.play_card("c9")
+        round.play_card("c8")
+
+        # player one wins, they lead
+        round.play_card("d7")
+
+        try:
+            # player two tries to play a non-diamond card
+            round.play_card("cq")
+            self.fail()
+        except m.InvalidMoveError:
+            pass  # test succeeded
+
+    def test_play_card_not_in_hand(self):
+        """
+        Tests that a player can only play cards
+        that are in their hand.
+        """
+        round = HeartsRound(example_hands, "none")
+
+        round.play_card("c2")
+
+        try:
+            # this card is not in player 1's hand
+            round.play_card("c5")
+            self.fail()
+        except m.InvalidMoveError:
+            pass  # test succeeded
+
+    def test_play_card_already_played(self):
+        """
+        Tests that a player cannot play a card
+        that they already played on a previous trick.
+        """
+        round = HeartsRound(example_hands, "none")
+
+        # get the first trick out of the way
+        round.play_card("c2")
+        round.play_card("c10")
+        round.play_card("c9")
+        round.play_card("c8")
+
+        # player 1 wins, next trick
+        try:
+            # player 1 already played this card
+            round.play_card("c10")
+            self.fail()
+        except m.InvalidMoveError:
+            pass  # test succeeded
+
+
 # TODO: more play card tests,
 # e.g. test following suit that isn't clubs,
 # test not following when hand doesn't have suit,
