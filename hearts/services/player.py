@@ -43,6 +43,10 @@ class PlayerService(object):
             self._create_player_transaction,
             name)
 
+    def set_current_game(self, player_id, game_id):
+        key = player_key(player_id)
+        self.redis.hset(key, "current_game", game_id)
+
     def _create_player_transaction(self, pipe, name):
         pipe.watch("usernames", "next_player_id")
 

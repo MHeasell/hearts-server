@@ -124,7 +124,7 @@ def user_resource(player_id):
     return jsonify(id=data["id"], name=data["name"], current_game=data["current_game"])
 
 
-@sockets.route("/queue/connect")
+@sockets.route("/play")
 def connect_to_queue(ws):
     print "got connection"
 
@@ -143,6 +143,26 @@ def connect_to_queue(ws):
 
     print "ticket is for user: " + str(player_id)
 
+    game_id = game_backend.try_get_player_game(player_id)
+    if game_id is None:
+        _handle_queue_connection(ws, player_id)
+    else:
+        _handle_game_connection(ws, player_id, game_id)
+
+
+def _handle_game_connection(ws, player_id, game_id):
+    # send the game info
+    evt_data = {
+        "type": "game_found",
+        "game_id": game_id
+    }
+
+    ws.send(json.dumps(evt_data))
+
+    # TODO: write the real game protocol
+
+
+def _handle_queue_connection(ws, player_id):
     # add to queue
     print "checking if user is already on the queue"
     if queue_backend.is_registered(player_id):
@@ -173,15 +193,9 @@ def connect_to_queue(ws):
 
     listen_greenlet.kill()
 
-    print "game found, sending details"
+    print "game found, handing over to game handler"
 
-    # send the game info
-    evt_data = {
-        "type": "game_found",
-        "game_id": game_id
-    }
-
-    ws.send(json.dumps(evt_data))
+    _handle_game_connection(ws, player_id, game_id)
 
 
 if __name__ == "__main__":
