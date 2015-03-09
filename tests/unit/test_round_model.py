@@ -52,7 +52,7 @@ class TestHeartsRound(unittest.TestCase):
         # this should not have changed the given hand
         self.assertNotEqual(len(hand), len(round.get_hand(0)))
 
-    def test_finish_passing_initial_player(self):
+    def test_initial_player(self):
         """
         The person with the two of clubs should be the first to play.
         """
@@ -60,7 +60,7 @@ class TestHeartsRound(unittest.TestCase):
 
         self.assertEqual(0, round.get_current_player())
 
-    def test_finish_passing_initial_player_2(self):
+    def test_initial_player_2(self):
         """
         Same as previous test but with different player.
         """
