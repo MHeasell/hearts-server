@@ -147,7 +147,6 @@ def connect_to_queue(ws):
     print "checking if user is already on the queue"
     if queue_backend.is_registered(player_id):
         print "player already in queue, disconnecting"
-        ws.close()
         return
 
     print "registering player in queue"
