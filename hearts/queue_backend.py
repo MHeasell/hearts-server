@@ -1,12 +1,22 @@
+from gevent.event import AsyncResult
+
+
+class PlayerUnregisteredError(Exception):
+    pass
+
+
 class GameQueueBackend(object):
     def __init__(self, game_creator):
         self.clients = []
         self.game_creator = game_creator
 
-    def register(self, player_id, client):
-        self.clients.append((player_id, client))
+    def register(self, player_id):
+        result = AsyncResult()
+        self.clients.append((player_id, result))
 
         self.try_match()
+
+        return result
 
     def try_match(self):
         if len(self.clients) < 4:
@@ -18,8 +28,8 @@ class GameQueueBackend(object):
         player_ids = map(lambda x: x[0], players)
         game_id = self.game_creator.create_game(player_ids)
 
-        for _, cb in players:
-            cb(game_id)
+        for _, result in players:
+            result.set(game_id)
 
     def is_registered(self, player_id):
         for idx, (item_id, _) in enumerate(self.clients):
@@ -36,4 +46,5 @@ class GameQueueBackend(object):
                 break
 
         if found_idx is not None:
-            self.clients.pop(found_idx)
+            _, result = self.clients.pop(found_idx)
+            result.set_exception(PlayerUnregisteredError())

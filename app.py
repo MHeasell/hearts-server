@@ -23,7 +23,7 @@ import ConfigParser
 from hearts.services.ticket import TicketService
 from hearts.services.player import PlayerService, PlayerStateError
 
-from hearts.queue_backend import GameQueueBackend
+from hearts.queue_backend import GameQueueBackend, PlayerUnregisteredError
 from hearts.GameBackend import GameBackend
 
 config = ConfigParser.RawConfigParser()
@@ -150,42 +150,36 @@ def connect_to_queue(ws):
         ws.close()
         return
 
-    def callback(game_id):
-        callback.game_id = game_id
-    callback.game_id = None
-
     print "registering player in queue"
-    queue_backend.register(player_id, callback)
+    result = queue_backend.register(player_id)
 
     # wait for cancel
     def check_cancel():
         while True:
             msg = ws.receive()
             if msg is None or msg == "cancel":
-                print "Client cancelled, returning."
+                print "Client cancelled, unregistering."
                 queue_backend.unregister(player_id)
-                ws.close()
                 return
 
             gevent.sleep()
 
-    check_cancel.cancel = False
+    listen_greenlet = gevent.spawn(check_cancel)
 
-    g = gevent.spawn(check_cancel)
+    try:
+        game_id = result.get()
+    except PlayerUnregisteredError:
+        print "Player was unregistered, disconnecting."
+        return
 
-    while callback.game_id is None:
-        if ws.closed:
-            return
-        gevent.sleep()
-
-    g.kill()
+    listen_greenlet.kill()
 
     print "game found, sending details"
 
     # send the game info
     evt_data = {
         "type": "game_found",
-        "game_id": callback.game_id
+        "game_id": game_id
     }
 
     ws.send(json.dumps(evt_data))
