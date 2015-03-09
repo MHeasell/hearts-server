@@ -28,3 +28,7 @@ class PassingNotInProgressError(GameStateError):
 
 class InvalidMoveError(GameStateError):
     pass
+
+
+class InvalidHandError(GameStateError):
+    pass

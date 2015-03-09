@@ -1,5 +1,6 @@
 from exceptions import RoundNotInProgressError
 from exceptions import InvalidMoveError
+import exceptions as e
 
 import hearts.util as u
 
@@ -8,6 +9,7 @@ class HeartsRound(object):
 
     def __init__(self, hands):
         self.hands = [None, None, None, None]
+        self.scores = [0, 0, 0, 0]
         self.current_player = None
         self.trick = []
         self.is_first_move = True
@@ -17,21 +19,30 @@ class HeartsRound(object):
         for i, hand in enumerate(hands):
             self.hands[i] = list(hand)
 
-        self._start_playing()
+        # find the starting player
+        for i, hand in enumerate(self.hands):
+            if "c2" in hand:
+                self.current_player = i
+                break
+
+        if self.current_player is None:
+            raise e.InvalidHandError
+
+        assert self.current_player is not None
+
+        # move to playing state
+        self.is_first_move = True
 
     def get_hand(self, player_index):
         return self.hands[player_index][:]
 
     def get_current_player(self):
-        if self.state == "passing":
-            raise RoundNotInProgressError()
-
         return self.current_player
 
-    def play_card(self, card):
-        if self.state != "playing":
-            raise RoundNotInProgressError()
+    def get_score(self, player_index):
+        return self.scores[player_index]
 
+    def play_card(self, card):
         hand = self.hands[self.current_player]
 
         if card not in hand:
@@ -65,33 +76,17 @@ class HeartsRound(object):
             self._finish_trick()
 
     def get_trick(self):
-        if self.state != "playing":
-            raise RoundNotInProgressError()
-
         return self.trick[:]
 
     def is_hearts_broken(self):
-        if self.state != "playing":
-            raise RoundNotInProgressError()
-
         return self._is_hearts_broken
 
     def _finish_trick(self):
         # move onto the next trick
-        winner = u.find_winning_index(map(lambda x: x["card"], self.trick))
-        self.current_player = self.trick[winner]["player"]
+        cards = map(lambda x: x["card"], self.trick)
+        win_idx = u.find_winning_index(cards)
+        winner = self.trick[win_idx]["player"]
+        self.current_player = winner
         self.trick = []
         self.is_first_trick = False
-
-    def _start_playing(self):
-        # find the starting player
-        for i, hand in enumerate(self.hands):
-            if "c2" in hand:
-                self.current_player = i
-                break
-
-        assert self.current_player is not None
-
-        # move to playing state
-        self.state = "playing"
-        self.is_first_move = True
+        self.scores[winner] += u.sum_points(cards)

@@ -52,6 +52,14 @@ class TestHeartsRound(unittest.TestCase):
         # this should not have changed the given hand
         self.assertNotEqual(len(hand), len(round.get_hand(0)))
 
+    def test_initial_scores(self):
+        """
+        At the start of the round, everybody's score should be zero.
+        """
+        round = HeartsRound(example_hands)
+        for i in range(4):
+            self.assertEqual(0, round.get_score(i))
+
     def test_initial_player(self):
         """
         The person with the two of clubs should be the first to play.
@@ -414,6 +422,37 @@ class TestHeartsRound(unittest.TestCase):
         except m.InvalidMoveError:
             pass
 
+    def test_add_to_score(self):
+        """
+        Tests that when a player wins a heart,
+        their score is incremented.
+        """
+        hands = [
+            ["d4", "dj", "s9", 'h5', 'c2', 'h1', 'd2', 'h8', 'd3', 's2', 'd9', 'd8', 'dq'],
+            ["s7", "c5", "c4", 'c10', 'h6', 'c3', 'h10', 'hk', 'd7', 'dk', 'h4', 'sj', 'hq'],
+            ["hj", "s5", "d5", 's6', 's10', 'd1', 'sk', 's4', 'h7', 'd10', 'c9', 'cq', 'cj'],
+            ["d6", "h2", "sq", 'c8', 'h9', 'ck', 'h3', 'c6', 's1', 'c1', 's3', 'c7', 's8']
+        ]
+
+        round = HeartsRound(hands)
+
+        # get the first trick out of the way
+        round.play_card("c2")
+        round.play_card("c10")
+        round.play_card("c9")
+        round.play_card("c8")
+
+        # player 1 to start now
+        self.assertEqual(1, round.get_current_player())
+
+        round.play_card("c3")
+        round.play_card("cj")
+        round.play_card("c7")
+        round.play_card("h5")  # player 0 has no clubs
+
+        # player 2 wins due to cj,
+        # so their score should update.
+        self.assertEqual(1, round.get_score(2))
 
 if __name__ == '__main__':
     unittest.main()
