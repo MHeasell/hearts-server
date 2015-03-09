@@ -59,6 +59,7 @@ class HeartsRound(object):
         self.trick = []
         self.is_first_move = True
         self._is_hearts_broken = False
+        self.is_first_trick = True
 
         for i, hand in enumerate(hands):
             self.hands[i] = list(hand)
@@ -125,6 +126,9 @@ class HeartsRound(object):
         if card_suit == "h":
             self._is_hearts_broken = True
 
+        if self.is_first_trick and (card_suit == "h" or card == "sq"):
+            raise InvalidMoveError()
+
         self.hands[self.current_player].remove(card)
         self.trick.append({"player": self.current_player, "card": card})
         self.current_player = (self.current_player + 1) % 4
@@ -150,6 +154,7 @@ class HeartsRound(object):
         winner = u.find_winning_index(map(lambda x: x["card"], self.trick))
         self.current_player = self.trick[winner]["player"]
         self.trick = []
+        self.is_first_trick = False
 
     def _start_passing(self):
         self.passed_cards = [None, None, None, None]

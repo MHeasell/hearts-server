@@ -621,14 +621,59 @@ class TestHeartsRound(unittest.TestCase):
         # player 2 can lead with a heart now
         round.play_card("h7")
 
-        self.assertEqual([{"player":2, "card": "h7"}], round.get_trick())
+        self.assertEqual([{"player": 2, "card": "h7"}], round.get_trick())
+
+    def test_play_first_trick_break_hearts(self):
+        """
+        Tests that hearts cannot be played on the first trick
+        """
+        round = HeartsRound(example_hands, "left")
+        round.pass_cards(0, ["c2", "c5", "c4"])
+        round.pass_cards(1, ["hj", "s5", "d5"])
+        round.pass_cards(2, ["d6", "h2", "sq"])
+        round.pass_cards(3, ["d4", "dj", "s9"])
+        round.finish_passing()
+
+        # player 1 has the c2, so they start
+        round.play_card("c2")
+        round.play_card("c9")
+        round.play_card("c8")
+
+        try:
+            # player 0 has no clubs,
+            # but they cannot play a heart on the first trick
+            round.play_card("h5")
+            self.fail()
+        except m.InvalidMoveError:
+            pass
+
+    def test_play_first_trick_queen_of_spades(self):
+        """
+        Tests that the queen of spades cannot be played on the first trick
+        """
+        round = HeartsRound(example_hands, "across")
+        round.pass_cards(0, ["c2", "c5", "c4"])
+        round.pass_cards(1, ["hj", "s5", "d5"])
+        round.pass_cards(2, ["d6", "h2", "sq"])
+        round.pass_cards(3, ["d4", "dj", "s9"])
+        round.finish_passing()
+
+        # player 2 has the c2, so they start
+        round.play_card("c2")
+        round.play_card("c8")
+
+        try:
+            # player 0 has no clubs,
+            # but they cannot play the queen of spades on the first trick
+            round.play_card("sq")
+            self.fail()
+        except m.InvalidMoveError:
+            pass
 
 # TODO: more play card tests,
-# e.g. test following suit that isn't clubs,
-# test not following when hand doesn't have suit,
-# test breaking hearts,
 # point values for cards,
-# no hearts on first trick, etc.
+# end round, etc.
+# also event tests
 
 
 if __name__ == '__main__':
