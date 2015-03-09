@@ -48,40 +48,25 @@ class HeartsGame(object):
         return 0
 
 
-class HeartsRound(object):
-
+class HeartsPreRound(object):
     def __init__(self, hands, pass_direction="left"):
+        self.pass_direction = pass_direction
         self.hands = [None, None, None, None]
         self.passed_cards = [None, None, None, None]
-        self.state = "init"
-        self.current_player = None
-        self.pass_direction = pass_direction
-        self.trick = []
-        self.is_first_move = True
-        self._is_hearts_broken = False
-        self.is_first_trick = True
 
         for i, hand in enumerate(hands):
             self.hands[i] = list(hand)
 
-        if pass_direction != "none":
-            self._start_passing()
-        else:
-            self._start_playing()
-
     def get_hand(self, player_index):
         return self.hands[player_index][:]
 
-    def get_current_player(self):
-        if self.state == "passing":
-            raise RoundNotInProgressError()
-
-        return self.current_player
+    def get_all_hands(self):
+        hands = [None, None, None, None]
+        for i, hand in enumerate(self.hands):
+            hands[i] = list(hand)
+        return hands
 
     def pass_cards(self, player_index, cards):
-        if self.state != "passing":
-            raise PassingNotInProgressError()
-
         if self.passed_cards[player_index] is not None:
             raise CardsAlreadyPassedError()
 
@@ -95,11 +80,43 @@ class HeartsRound(object):
         self.passed_cards[player_index] = cards_to_pass
 
     def finish_passing(self):
-        if self.state != "passing":
-            raise PassingNotInProgressError()
+        for cards in self.passed_cards:
+            if cards is None:
+                raise PlayersYetToPassError()
 
-        self._finish_passing()
+        for i, cards in enumerate(self.passed_cards):
+            for card in cards:
+                target_index = self._get_target_player_index(i)
+                self.hands[i].remove(card)
+                self.hands[target_index].append(card)
+
+    def _get_target_player_index(self, player_index):
+        return (player_index + u.get_pass_offset(self.pass_direction)) % 4
+
+
+class HeartsRound(object):
+
+    def __init__(self, hands):
+        self.hands = [None, None, None, None]
+        self.current_player = None
+        self.trick = []
+        self.is_first_move = True
+        self._is_hearts_broken = False
+        self.is_first_trick = True
+
+        for i, hand in enumerate(hands):
+            self.hands[i] = list(hand)
+
         self._start_playing()
+
+    def get_hand(self, player_index):
+        return self.hands[player_index][:]
+
+    def get_current_player(self):
+        if self.state == "passing":
+            raise RoundNotInProgressError()
+
+        return self.current_player
 
     def play_card(self, card):
         if self.state != "playing":
@@ -156,21 +173,6 @@ class HeartsRound(object):
         self.trick = []
         self.is_first_trick = False
 
-    def _start_passing(self):
-        self.passed_cards = [None, None, None, None]
-        self.state = "passing"
-
-    def _finish_passing(self):
-        for cards in self.passed_cards:
-            if cards is None:
-                raise PlayersYetToPassError()
-
-        for i, cards in enumerate(self.passed_cards):
-            for card in cards:
-                target_index = self._get_target_player_index(i)
-                self.hands[i].remove(card)
-                self.hands[target_index].append(card)
-
     def _start_playing(self):
         # find the starting player
         for i, hand in enumerate(self.hands):
@@ -183,6 +185,3 @@ class HeartsRound(object):
         # move to playing state
         self.state = "playing"
         self.is_first_move = True
-
-    def _get_target_player_index(self, player_index):
-        return (player_index + u.get_pass_offset(self.pass_direction)) % 4

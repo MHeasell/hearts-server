@@ -1,6 +1,6 @@
 import unittest
 
-from hearts.game_model import HeartsGame, HeartsRound
+from hearts.game_model import HeartsGame, HeartsRound, HeartsPreRound
 import hearts.game_model as m
 
 import hearts.util as u
@@ -27,76 +27,19 @@ class TestHeartsModel(unittest.TestCase):
             self.assertEqual(0, game.get_score(i))
 
 
-class TestHeartsRound(unittest.TestCase):
+class TestHeartsPreRound(unittest.TestCase):
 
     def test_init(self):
-        round = HeartsRound(example_hands)
+        round = HeartsPreRound(example_hands)
         for i in range(4):
             self.assertEqual(example_hands[i], round.get_hand(i))
-
-    def test_init_get_current_player(self):
-        """
-        When the round is first initialized,
-        get_current_player should fail
-        as play has started yet.
-        """
-        round = HeartsRound(example_hands)
-
-        try:
-            round.get_current_player()
-            self.fail()
-        except m.RoundNotInProgressError:
-            pass  # test succeeded
-
-    def test_init_play_card(self):
-        """
-        When the round is still passing
-        we should not be able to play a card.
-        """
-        round = HeartsRound(example_hands)
-        try:
-            round.play_card("c2")
-            self.fail()
-        except m.RoundNotInProgressError:
-            pass  # test succeeded
-
-    def test_init_get_trick(self):
-        """
-        When the round is still passing
-        we should not be able to get the current trick.
-        """
-        round = HeartsRound(example_hands)
-        try:
-            round.get_trick()
-            self.fail()
-        except m.RoundNotInProgressError:
-            pass  # test succeeded
-
-    def test_init_is_hearts_broken(self):
-        """
-        When still passing we should not be able to check whether hearts
-        has been broken.
-        """
-        round = HeartsRound(example_hands)
-        try:
-            round.is_hearts_broken()
-            self.fail()
-        except m.RoundNotInProgressError:
-            pass  # test succeeded
-
-    def test_init_play_is_hearts_broken(self):
-        """
-        When play initially starts, hearts should not be broken.
-        """
-        round = HeartsRound(example_hands, "none")
-        self.assertFalse(round.is_hearts_broken())
 
     def test_start_round_hand_modification(self):
         """
         The object should copy hands it takes in.
         """
         hands = u.deal_hands()
-        round = HeartsRound(hands)
+        round = HeartsPreRound(hands)
 
         # try to modify the hand we passed in
         hands[0].pop()
@@ -109,7 +52,7 @@ class TestHeartsRound(unittest.TestCase):
         The object should copy hands it emits via get_hand
         """
         hands = u.deal_hands()
-        round = HeartsRound(hands)
+        round = HeartsPreRound(hands)
 
         hand = round.get_hand(0)
         hand.pop()
@@ -121,7 +64,7 @@ class TestHeartsRound(unittest.TestCase):
         """
         We should not be allowed to pass cards not in our hand.
         """
-        round = HeartsRound(example_hands)
+        round = HeartsPreRound(example_hands)
 
         cards_to_pass = ["h5", "h7", "sk"]  # sk is not in our hand
 
@@ -135,7 +78,7 @@ class TestHeartsRound(unittest.TestCase):
         """
         We should not be allowed to pass cards more than once.
         """
-        round = HeartsRound(example_hands)
+        round = HeartsPreRound(example_hands)
 
         cards_to_pass = ["h5", "s7", "c2"]
         round.pass_cards(0, cards_to_pass)
@@ -146,27 +89,12 @@ class TestHeartsRound(unittest.TestCase):
         except m.CardsAlreadyPassedError:
             pass  # test succeeded
 
-    def test_finish_passing(self):
-        """
-        When all cards have been passed
-        and we move to the playing state,
-        the person with the two of clubs should be the first to play.
-        """
-        round = HeartsRound(example_hands)
-
-        for i in range(4):
-            round.pass_cards(i, example_hands[i][:3])
-
-        round.finish_passing()
-
-        self.assertEqual(1, round.get_current_player())
-
     def test_finish_passing_not_all_passed(self):
         """
         We should not be able to finish passing
         when not all players have passed.
         """
-        round = HeartsRound(example_hands)
+        round = HeartsPreRound(example_hands)
 
         # last player does not pass
         for i in range(3):
@@ -183,7 +111,7 @@ class TestHeartsRound(unittest.TestCase):
         When passing is finished,
         passed cards should be transferred to players' hands.
         """
-        round = HeartsRound(example_hands)
+        round = HeartsPreRound(example_hands)
 
         for i in range(4):
             round.pass_cards(i, example_hands[i][:3])
@@ -212,7 +140,7 @@ class TestHeartsRound(unittest.TestCase):
         when passing is finished,
         passed cards should be transferred to opposite players' hands.
         """
-        round = HeartsRound(example_hands, "across")
+        round = HeartsPreRound(example_hands, "across")
 
         for i in range(4):
             round.pass_cards(i, example_hands[i][:3])
@@ -241,7 +169,7 @@ class TestHeartsRound(unittest.TestCase):
         when passing is finished,
         passed cards should be transferred to previous players' hands.
         """
-        round = HeartsRound(example_hands, "right")
+        round = HeartsPreRound(example_hands, "right")
 
         for i in range(4):
             round.pass_cards(i, example_hands[i][:3])
@@ -264,20 +192,54 @@ class TestHeartsRound(unittest.TestCase):
             self.assertNotIn(card, round.get_hand(3))
             self.assertIn(card, round.get_hand(2))
 
+
+class TestHeartsRound(unittest.TestCase):
+
+    def test_init(self):
+        round = HeartsRound(example_hands)
+        for i in range(4):
+            self.assertEqual(example_hands[i], round.get_hand(i))
+
+    def test_init_play_is_hearts_broken(self):
+        """
+        When play initially starts, hearts should not be broken.
+        """
+        round = HeartsRound(example_hands)
+        self.assertFalse(round.is_hearts_broken())
+
+    def test_start_round_hand_modification(self):
+        """
+        The object should copy hands it takes in.
+        """
+        hands = u.deal_hands()
+        round = HeartsRound(hands)
+
+        # try to modify the hand we passed in
+        hands[0].pop()
+
+        # this should not have changed the given hand
+        self.assertNotEqual(len(hands[0]), len(round.get_hand(0)))
+
+    def test_start_round_get_hand_modification(self):
+        """
+        The object should copy hands it emits via get_hand
+        """
+        hands = u.deal_hands()
+        round = HeartsRound(hands)
+
+        hand = round.get_hand(0)
+        hand.pop()
+
+        # this should not have changed the given hand
+        self.assertNotEqual(len(hand), len(round.get_hand(0)))
+
     def test_finish_passing_initial_player(self):
         """
-        When all cards have been passed
-        and we move to the playing state,
-        the person with the two of clubs should be the first to play.
+        The person with the two of clubs should be the first to play.
         """
         round = HeartsRound(example_hands)
 
-        for i in range(4):
-            round.pass_cards(i, example_hands[i][:3])
-
-        round.finish_passing()
-
-        self.assertEqual(1, round.get_current_player())
+        self.assertEqual(0, round.get_current_player())
 
     def test_finish_passing_initial_player_2(self):
         """
@@ -291,55 +253,13 @@ class TestHeartsRound(unittest.TestCase):
 
         round = HeartsRound(new_hands)
 
-        for i in range(4):
-            round.pass_cards(i, new_hands[i][-3:])
-
-        round.finish_passing()
-
         self.assertEqual(2, round.get_current_player())
-
-    def test_no_passing_initial_player(self):
-        """
-        When the pass direction is none,
-        the round starts in playing state
-        and get_current_round is callable.
-        The person with the two of clubs leads.
-        """
-        round = HeartsRound(example_hands, "none")
-
-        self.assertEqual(0, round.get_current_player())
-
-    def test_no_passing_try_pass(self):
-        """
-        When the pass direction is none,
-        we shouldn't be able to pass cards.
-        """
-        round = HeartsRound(example_hands, "none")
-
-        try:
-            round.pass_cards(0, ['h5', 's7', 'c2'])
-            self.fail()
-        except m.PassingNotInProgressError:
-            pass  # test succeeded
-
-    def test_no_passing_try_finish_pass(self):
-        """
-        When the pass direction is none,
-        we shouldn't be able to finish passing.
-        """
-        round = HeartsRound(example_hands, "none")
-
-        try:
-            round.finish_passing()
-            self.fail()
-        except m.PassingNotInProgressError:
-            pass  # test succeeded
 
     def test_get_trick_mod(self):
         """
         We should not be able to modify the trick once returned.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
         trick = round.get_trick()
         trick.append("foo")
         self.assertNotEqual(len(trick), len(round.get_trick()))
@@ -351,14 +271,9 @@ class TestHeartsRound(unittest.TestCase):
         """
         round = HeartsRound(example_hands)
 
-        for i in range(4):
-            round.pass_cards(i, example_hands[i][:3])
-
-        round.finish_passing()
-
         round.play_card("c2")
 
-        expected = [{"player": 1, "card": "c2"}]
+        expected = [{"player": 0, "card": "c2"}]
 
         self.assertEquals(expected, round.get_trick())
 
@@ -366,11 +281,12 @@ class TestHeartsRound(unittest.TestCase):
         """
         Same as before, but no passing and different leading player
         """
-        round = HeartsRound(example_hands, "none")
+        new_hands = [example_hands[1], example_hands[0], example_hands[2], example_hands[3]]
+        round = HeartsRound(new_hands)
 
         round.play_card("c2")
 
-        expected = [{"player": 0, "card": "c2"}]
+        expected = [{"player": 1, "card": "c2"}]
 
         self.assertEquals(expected, round.get_trick())
 
@@ -378,7 +294,7 @@ class TestHeartsRound(unittest.TestCase):
         """
         When a move has been played, the current player should update.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         self.assertEqual(0, round.get_current_player())
 
@@ -392,7 +308,7 @@ class TestHeartsRound(unittest.TestCase):
         after player 3 plays a card.
         """
         hands = [example_hands[1], example_hands[2], example_hands[3], example_hands[0]]
-        round = HeartsRound(hands, "none")
+        round = HeartsRound(hands)
 
         self.assertEqual(3, round.get_current_player())
         round.play_card("c2")
@@ -402,7 +318,7 @@ class TestHeartsRound(unittest.TestCase):
         """
         The first card of the round should always be the two of clubs.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         try:
             round.play_card("c5")
@@ -414,7 +330,7 @@ class TestHeartsRound(unittest.TestCase):
         """
         After the first move, the second player can play any club
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         round.play_card("c2")
         round.play_card("c10")
@@ -431,7 +347,7 @@ class TestHeartsRound(unittest.TestCase):
         After the first move, the second player must play a club,
         not any other suit.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         round.play_card("c2")
 
@@ -446,7 +362,7 @@ class TestHeartsRound(unittest.TestCase):
         Tests that the next trick is set up properly
         when a trick is finished.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         # play the trick
         round.play_card("c2")
@@ -465,7 +381,7 @@ class TestHeartsRound(unittest.TestCase):
         """
         Tests that the winner of the trick is properly set.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         # play the trick
         round.play_card("c2")
@@ -482,7 +398,7 @@ class TestHeartsRound(unittest.TestCase):
         Players must follow suit
         whatever suit the first card is.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         # get the first trick out of the way
         round.play_card("c2")
@@ -505,7 +421,7 @@ class TestHeartsRound(unittest.TestCase):
         Tests that a player can only play cards
         that are in their hand.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         round.play_card("c2")
 
@@ -521,7 +437,7 @@ class TestHeartsRound(unittest.TestCase):
         Tests that a player cannot play a card
         that they already played on a previous trick.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         # get the first trick out of the way
         round.play_card("c2")
@@ -542,7 +458,7 @@ class TestHeartsRound(unittest.TestCase):
         Tests that a player cannot lead with a heart
         when hearts has not been broken.
         """
-        round = HeartsRound(example_hands, "none")
+        round = HeartsRound(example_hands)
 
         # get the first trick out of the way
         round.play_card("c2")
@@ -562,12 +478,15 @@ class TestHeartsRound(unittest.TestCase):
         Tests that a player can play a card of a different suit
         if they cannot follow suit.
         """
-        round = HeartsRound(example_hands, "left")
-        round.pass_cards(0, ["s7", "c5", "c4"])
-        round.pass_cards(1, ["hj", "s5", "d5"])
-        round.pass_cards(2, ["d6", "h2", "sq"])
-        round.pass_cards(3, ["d4", "dj", "s9"])
-        round.finish_passing()
+        pre = HeartsPreRound(example_hands, "left")
+
+        pre.pass_cards(0, ["s7", "c5", "c4"])
+        pre.pass_cards(1, ["hj", "s5", "d5"])
+        pre.pass_cards(2, ["d6", "h2", "sq"])
+        pre.pass_cards(3, ["d4", "dj", "s9"])
+        pre.finish_passing()
+
+        round = HeartsRound(pre.get_all_hands())
 
         # get the first trick out of the way
         round.play_card("c2")
@@ -591,12 +510,14 @@ class TestHeartsRound(unittest.TestCase):
         Tests that once hearts is broken,
         it is possible to lead with a heart.
         """
-        round = HeartsRound(example_hands, "left")
-        round.pass_cards(0, ["s7", "c5", "c4"])
-        round.pass_cards(1, ["hj", "s5", "d5"])
-        round.pass_cards(2, ["d6", "h2", "sq"])
-        round.pass_cards(3, ["d4", "dj", "s9"])
-        round.finish_passing()
+        pre = HeartsPreRound(example_hands, "left")
+        pre.pass_cards(0, ["s7", "c5", "c4"])
+        pre.pass_cards(1, ["hj", "s5", "d5"])
+        pre.pass_cards(2, ["d6", "h2", "sq"])
+        pre.pass_cards(3, ["d4", "dj", "s9"])
+        pre.finish_passing()
+
+        round = HeartsRound(pre.get_all_hands())
 
         # get the first trick out of the way
         round.play_card("c2")
@@ -627,12 +548,14 @@ class TestHeartsRound(unittest.TestCase):
         """
         Tests that hearts cannot be played on the first trick
         """
-        round = HeartsRound(example_hands, "left")
-        round.pass_cards(0, ["c2", "c5", "c4"])
-        round.pass_cards(1, ["hj", "s5", "d5"])
-        round.pass_cards(2, ["d6", "h2", "sq"])
-        round.pass_cards(3, ["d4", "dj", "s9"])
-        round.finish_passing()
+        pre = HeartsPreRound(example_hands, "left")
+        pre.pass_cards(0, ["c2", "c5", "c4"])
+        pre.pass_cards(1, ["hj", "s5", "d5"])
+        pre.pass_cards(2, ["d6", "h2", "sq"])
+        pre.pass_cards(3, ["d4", "dj", "s9"])
+        pre.finish_passing()
+
+        round = HeartsRound(pre.get_all_hands())
 
         # player 1 has the c2, so they start
         round.play_card("c2")
@@ -651,13 +574,14 @@ class TestHeartsRound(unittest.TestCase):
         """
         Tests that the queen of spades cannot be played on the first trick
         """
-        round = HeartsRound(example_hands, "across")
-        round.pass_cards(0, ["c2", "c5", "c4"])
-        round.pass_cards(1, ["hj", "s5", "d5"])
-        round.pass_cards(2, ["d6", "h2", "sq"])
-        round.pass_cards(3, ["d4", "dj", "s9"])
-        round.finish_passing()
+        pre = HeartsPreRound(example_hands, "across")
+        pre.pass_cards(0, ["c2", "c5", "c4"])
+        pre.pass_cards(1, ["hj", "s5", "d5"])
+        pre.pass_cards(2, ["d6", "h2", "sq"])
+        pre.pass_cards(3, ["d4", "dj", "s9"])
+        pre.finish_passing()
 
+        round = HeartsRound(pre.get_all_hands())
         # player 2 has the c2, so they start
         round.play_card("c2")
         round.play_card("c8")
