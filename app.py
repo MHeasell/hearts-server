@@ -24,6 +24,8 @@ from hearts.services.player import PlayerService, PlayerStateError
 from hearts.queue_backend import GameQueueBackend, PlayerUnregisteredError
 from hearts.GameBackend import GameBackend
 
+from hearts.model.exceptions import GameStateError
+
 config = ConfigParser.RawConfigParser()
 config.read('config.ini')
 
@@ -150,16 +152,136 @@ def connect_to_queue(ws):
         _handle_game_connection(ws, player_id, game_id)
 
 
-def _handle_game_connection(ws, player_id, game_id):
-    # send the game info
-    evt_data = {
-        "type": "game_found",
-        "game_id": game_id
+def _handle_message(game, player_idx, msg):
+    data = json.loads(msg)
+    action = data["action"]
+
+    if action == "play_card":
+        card = data["card"]
+        if game.get_current_player() != player_idx:
+            raise GameStateError()  # not this player's turn
+
+        game.play_card(card)
+
+    elif action == "pass_card":
+        cards = data["cards"]
+        if len(cards) != 3:
+            raise Exception()  # must pass 3 cards
+        game.pass_cards(player_idx, cards)
+
+    else:
+        print "received unknown message: " + msg
+
+
+def _serialize_game_state(game_info, player_index):
+    game = game_info["game_object"]
+
+    state = game.get_state()
+
+    data = {
+        "game_id": game_info["id"],
+        "players": game_info["players"],
+        "scores": game.get_scores(),
+        "state": state
     }
 
-    ws.send(json.dumps(evt_data))
 
-    # TODO: write the real game protocol
+    if state == "init":
+        pass
+    elif state == "playing":
+        data["hand"] = game.get_hand(player_index)
+        data["trick"] = game.get_trick()
+        data["current_player"] = game.get_current_player()
+        data["round_scores"] = game.get_round_scores()
+    elif state == "passing":
+        data["hand"] = game.get_hand(player_index)
+        data["pass_direction"] = game.get_pass_direction()
+        data["have_passed"] = game.has_player_passed(player_index)
+    else:
+        raise Exception("Invalid game state: " + str(state))
+
+    return json.dumps(data)
+
+
+class ConnectionObserver(object):
+    def __init__(self, game, player_index, ws):
+        self.game = game
+        self.player_index = player_index
+        self.ws = ws
+
+    def on_start(self):
+        pass
+
+    def on_start_preround(self, pass_direction):
+        hand = self.game.get_hand(self.player_index)
+
+        data = {
+            "type": "event",
+            "event": "start_preround",
+            "pass_direction": pass_direction,
+            "hand": hand
+        }
+
+        self.ws.send(json.dumps(data))
+
+    def on_finish_preround(self):
+        cards = self.game.get_received_cards(self.player_index)
+
+        data = {
+            "type": "event",
+            "event": "finish_preround",
+            "received_cards": cards
+        }
+
+        self.ws.send(json.dumps(data))
+
+    def on_start_playing(self):
+        hand = self.game.get_hand(self.player_index)
+
+        data = {
+            "type": "event",
+            "event": "start_playing",
+            "hand": hand
+        }
+
+        self.ws.send(json.dumps(data))
+
+    def on_finish_trick(self, winner, points):
+        data = {
+            "type": "event",
+            "event": "finish_trick",
+            "winner": winner,
+            "points": points
+        }
+
+        self.ws.send(json.dumps(data))
+
+
+def _handle_game_connection(ws, player_id, game_id):
+    # send the game state
+    game_info = game_backend.get_game_info(game_id)
+    player_idx = game_info["players"].index(player_id)
+
+    ws.send(_serialize_game_state(game_info, player_idx))
+
+    game = game_info["game_object"]
+    observer = ConnectionObserver(game, player_idx, ws)
+    game.add_observer(observer)
+
+    try:
+        # listen for commands from the client
+        while True:
+            msg = ws.receive()
+            if msg is None:
+                print "player disconnected"
+                return
+            else:
+                try:
+                    _handle_message(game, player_idx, msg)
+                except GameStateError:
+                    ws.send("game state error")
+    finally:
+        game.remove_observer(observer)
 
 
 def _handle_queue_connection(ws, player_id):
