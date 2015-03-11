@@ -23,6 +23,9 @@ class HeartsPreRound(object):
             hands[i] = list(hand)
         return hands
 
+    def have_all_passed(self):
+        return all(self.passed_cards)
+
     def pass_cards(self, player_index, cards):
         if self.passed_cards[player_index] is not None:
             raise CardsAlreadyPassedError()

@@ -15,6 +15,7 @@ class HeartsRound(object):
         self.is_first_move = True
         self._is_hearts_broken = False
         self.is_first_trick = True
+        self._observers = []
 
         for i, hand in enumerate(hands):
             self.hands[i] = list(hand)
@@ -32,6 +33,9 @@ class HeartsRound(object):
 
         # move to playing state
         self.is_first_move = True
+
+    def add_observer(self, observer):
+        self._observers.append(observer)
 
     def get_hand(self, player_index):
         return self.hands[player_index][:]
@@ -89,4 +93,8 @@ class HeartsRound(object):
         self.current_player = winner
         self.trick = []
         self.is_first_trick = False
-        self.scores[winner] += u.sum_points(cards)
+        points = u.sum_points(cards)
+        self.scores[winner] += points
+
+        for obs in self._observers:
+            obs.on_finish_trick(winner, points)

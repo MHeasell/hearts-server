@@ -177,6 +177,41 @@ class TestHeartsPreRound(unittest.TestCase):
             self.assertNotIn(card, round.get_hand(3))
             self.assertIn(card, round.get_hand(2))
 
+    def test_have_all_passed_init(self):
+        """
+        When the class is initialized,
+        not all players should have passed.
+        """
+        round = HeartsPreRound(example_hands)
+
+        self.assertFalse(round.have_all_passed())
+
+    def test_have_all_passed_after_passing(self):
+        """
+        When all 4 players have passed, have_all_passed
+        should return true
+        """
+
+        round = HeartsPreRound(example_hands)
+
+        for i in range(4):
+            round.pass_cards(i, example_hands[i][:3])
+
+        self.assertTrue(round.have_all_passed())
+
+    def test_have_all_passed_after_almost_passing(self):
+        """
+        When all 4 players have passed, have_all_passed
+        should return true
+        """
+
+        round = HeartsPreRound(example_hands)
+
+        # only 3 players pass
+        for i in range(3):
+            round.pass_cards(i, example_hands[i][:3])
+
+        self.assertFalse(round.have_all_passed())
 
 if __name__ == '__main__':
     unittest.main()
