@@ -46,6 +46,9 @@ class HeartsRound(object):
     def get_score(self, player_index):
         return self.scores[player_index]
 
+    def get_scores(self):
+        return list(self.scores)
+
     def play_card(self, card):
         hand = self.hands[self.current_player]
 

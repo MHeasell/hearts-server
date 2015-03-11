@@ -1,4 +1,4 @@
-import hearts.game_model as m
+import hearts.model.game as m
 
 
 class GameBackend(object):
@@ -14,6 +14,7 @@ class GameBackend(object):
         self._next_game_id += 1
 
         model = m.HeartsGame()
+        model.start()
 
         self._games[game_id] = model
         self._players[game_id] = players
@@ -22,6 +23,9 @@ class GameBackend(object):
             self._player_mapping[player_id] = (game_id, idx)
 
         return game_id
+
+    def get_players(self, game_id):
+        return self._players[game_id]
 
     def get_player_index(self, game_id, player_id):
         players = self._players[game_id]
@@ -36,3 +40,12 @@ class GameBackend(object):
 
     def get_game(self, game_id):
         return self._games[game_id]
+
+    def get_game_info(self, game_id):
+        data = {
+            "id": game_id,
+            "game_object": self._games[game_id],
+            "players": self._players[game_id]
+        }
+
+        return data
