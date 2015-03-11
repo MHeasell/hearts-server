@@ -7,8 +7,6 @@ import gevent
 
 import json
 
-import time
-
 from flask import Flask, jsonify, abort, request
 from flask_cors import CORS
 from flask_sockets import Sockets
