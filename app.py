@@ -97,6 +97,7 @@ def handle_api_error(error):
     response.status_code = error.status_code
     return response
 
+
 @app.route("/players", methods=["POST"])
 def users_resource():
     if request.method == "POST":
@@ -112,6 +113,7 @@ def users_resource():
         response = jsonify(id=player_id, name=name, ticket=ticket)
         response.status_code = 201
         return response
+
 
 @app.route("/players/<int:player_id>")
 def user_resource(player_id):
@@ -209,4 +211,3 @@ if __name__ == "__main__":
     server.logger = l
 
     server.serve_forever()
-
