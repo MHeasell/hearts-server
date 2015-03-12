@@ -97,6 +97,14 @@ def receive_ws_event(ws):
     return json.loads(data)
 
 
+def send_command_fail(ws, command_id):
+    send_ws_event(ws, "command_fail", {"command_id": command_id})
+
+
+def send_command_success(ws, command_id):
+    send_ws_event(ws, "command_success", {"command_id": command_id})
+
+
 def find_requester_user_id():
     ticket = request.args.get("ticket", "")
     if not ticket:
@@ -154,24 +162,26 @@ def receive_auth(ws):
         if msg is None:
             return None
 
+        command_id = msg["command_id"]
+
         if msg.get("type") != "auth":
             print "got non-auth message, ignoring."
-            continue
+            send_command_fail(ws, command_id)
 
         print "got auth message"
         ticket = msg.get("ticket")
         if not ticket:
             print "got auth with no ticket, failing."
-            send_ws_event(ws, "auth_fail")
+            send_command_fail(ws, command_id)
             continue
 
         player_id = ticket_svc.get_player_id(ticket)
         if player_id is None:
             print "ticket not valid"
-            send_ws_event(ws, "auth_fail")
+            send_command_fail(ws, command_id)
             continue
 
-        send_ws_event(ws, "auth_success")
+        send_command_success(ws, command_id)
         return player_id
 
 
@@ -195,6 +205,7 @@ def connect_to_queue(ws):
 
 def _handle_message(ws, game, player_idx, data):
     action = data["type"]
+    command_id = data["command_id"]
 
     if action == "play_card":
         card = data["card"]
@@ -204,9 +215,9 @@ def _handle_message(ws, game, player_idx, data):
 
             game.play_card(card)
         except GameStateError:
-            send_ws_event(ws, "command_fail")
+            send_command_fail(ws, command_id)
 
-        send_ws_event(ws, "command_success")
+        send_command_success(ws, command_id)
 
     elif action == "pass_card":
         cards = data["cards"]
@@ -216,13 +227,13 @@ def _handle_message(ws, game, player_idx, data):
         try:
             game.pass_cards(player_idx, cards)
         except GameStateError:
-            send_ws_event(ws, "command_fail")
+            send_command_fail(ws, command_id)
 
-        send_ws_event(ws, "command_success")
+        send_command_success(ws, command_id)
 
     else:
         print "received invalid message type: " + action
-        send_ws_event(ws, "command_fail")
+        send_command_fail(ws, command_id)
 
 
 def _serialize_game_state(game_info, player_index):
