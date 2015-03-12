@@ -295,6 +295,10 @@ class ConnectionObserver(object):
         self._send_event("start_playing", data)
 
     def on_play_card(self, player_index, card):
+        if player_index == self.player_index:
+            # don't need to know about cards we played.
+            return
+
         data = {
             "player": player_index,
             "card": card
