@@ -365,8 +365,6 @@ def _handle_queue_connection(ws, player_id):
                 queue_backend.unregister(player_id)
                 return
 
-            gevent.sleep()
-
     listen_greenlet = gevent.spawn(check_cancel)
 
     try:
