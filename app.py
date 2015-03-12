@@ -4,6 +4,7 @@ from geventwebsocket.handler import WebSocketHandler
 import logging
 
 import gevent
+import gevent.queue as gq
 
 import json
 
@@ -160,7 +161,8 @@ def receive_auth(ws):
         print "got auth message"
         ticket = msg.get("ticket")
         if not ticket:
-            print "got auth with no ticket, ignoring."
+            print "got auth with no ticket, failing."
+            send_ws_event(ws, "auth_fail")
             continue
 
         player_id = ticket_svc.get_player_id(ticket)
@@ -191,24 +193,36 @@ def connect_to_queue(ws):
         _handle_game_connection(ws, player_id, game_id)
 
 
-def _handle_message(game, player_idx, data):
+def _handle_message(ws, game, player_idx, data):
     action = data["type"]
 
     if action == "play_card":
         card = data["card"]
-        if game.get_current_player() != player_idx:
-            raise GameStateError()  # not this player's turn
+        try:
+            if game.get_current_player() != player_idx:
+                raise GameStateError()  # not this player's turn
 
-        game.play_card(card)
+            game.play_card(card)
+        except GameStateError:
+            send_ws_event(ws, "command_fail")
+
+        send_ws_event(ws, "command_success")
 
     elif action == "pass_card":
         cards = data["cards"]
         if len(cards) != 3:
             raise Exception()  # must pass 3 cards
-        game.pass_cards(player_idx, cards)
+
+        try:
+            game.pass_cards(player_idx, cards)
+        except GameStateError:
+            send_ws_event(ws, "command_fail")
+
+        send_ws_event(ws, "command_success")
 
     else:
         print "received invalid message type: " + action
+        send_ws_event(ws, "command_fail")
 
 
 def _serialize_game_state(game_info, player_index):
@@ -244,10 +258,10 @@ def _serialize_game_state(game_info, player_index):
 
 
 class ConnectionObserver(object):
-    def __init__(self, game, player_index, ws):
+    def __init__(self, game, player_index, queue):
         self.game = game
         self.player_index = player_index
-        self.ws = ws
+        self.queue = queue
 
     def on_start(self):
         pass
@@ -297,7 +311,7 @@ class ConnectionObserver(object):
         self._send_event("finish_trick", data)
 
     def _send_event(self, event_type, data):
-        send_ws_event(self.ws, event_type, data)
+        self.queue.put((event_type, data))
 
 
 def _handle_game_connection(ws, player_id, game_id):
@@ -308,8 +322,15 @@ def _handle_game_connection(ws, player_id, game_id):
     send_ws_event(ws, "game_data", _serialize_game_state(game_info, player_idx))
 
     game = game_info["game_object"]
-    observer = ConnectionObserver(game, player_idx, ws)
+    event_queue = gq.Queue()
+    observer = ConnectionObserver(game, player_idx, event_queue)
     game.add_observer(observer)
+
+    def consume_events():
+        for item in event_queue:
+            send_ws_event(ws, item[0], item[1])
+
+    queue_greenlet = gevent.spawn()
 
     try:
         # listen for commands from the client
@@ -319,12 +340,10 @@ def _handle_game_connection(ws, player_id, game_id):
                 print "player disconnected"
                 return
             else:
-                try:
-                    _handle_message(game, player_idx, msg)
-                except GameStateError:
-                    ws.send("game state error")
+                _handle_message(ws, game, player_idx, msg)
     finally:
         game.remove_observer(observer)
+        queue_greenlet.kill()
 
 
 def _handle_queue_connection(ws, player_id):
