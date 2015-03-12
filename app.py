@@ -314,6 +314,11 @@ class ConnectionObserver(object):
         self.queue.put((event_type, data))
 
 
+def consume_events(ws, event_queue):
+    for item in event_queue:
+        send_ws_event(ws, item[0], item[1])
+
+
 def _handle_game_connection(ws, player_id, game_id):
     # send the game state
     game_info = game_backend.get_game_info(game_id)
@@ -326,11 +331,7 @@ def _handle_game_connection(ws, player_id, game_id):
     observer = ConnectionObserver(game, player_idx, event_queue)
     game.add_observer(observer)
 
-    def consume_events():
-        for item in event_queue:
-            send_ws_event(ws, item[0], item[1])
-
-    queue_greenlet = gevent.spawn()
+    queue_greenlet = gevent.spawn(consume_events, ws, event_queue)
 
     try:
         # listen for commands from the client
