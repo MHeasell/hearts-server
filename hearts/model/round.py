@@ -74,10 +74,15 @@ class HeartsRound(object):
         if self.is_first_trick and (card_suit == "h" or card == "sq"):
             raise InvalidMoveError()
 
-        self.hands[self.current_player].remove(card)
-        self.trick.append({"player": self.current_player, "card": card})
-        self.current_player = (self.current_player + 1) % 4
+        player = self.current_player
+
+        self.hands[player].remove(card)
+        self.trick.append({"player": player, "card": card})
+        self.current_player = (player + 1) % 4
         self.is_first_move = False
+
+        for obs in self._observers:
+            obs.on_play_card(player, card)
 
         if len(self.trick) == 4:
             self._finish_trick()

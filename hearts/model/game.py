@@ -106,11 +106,7 @@ class HeartsGame(object):
         if self._state != "playing":
             raise e.RoundNotInProgressError()
 
-        player_index = self._round.get_current_player()
         self._round.play_card(card)
-
-        for obs in self._observers:
-            obs.on_play_card(player_index, card)
 
     def add_observer(self, observer):
         self._observers.append(observer)
@@ -131,6 +127,10 @@ class HeartsGame(object):
         for obs in self._observers:
             obs.on_start_preround("left")
 
+    def _on_play_card(self, player_index, card):
+        for obs in self._observers:
+            obs.on_play_card(player_index, card)
+
     def _on_finish_trick(self, winner, points):
         for obs in self._observers:
             obs.on_finish_trick(winner, points)
@@ -139,6 +139,9 @@ class HeartsGame(object):
 class RoundObserver(object):
     def __init__(self, game):
         self.game = game
+
+    def on_play_card(self, player, card):
+        self.game._on_play_card(player, card)
 
     def on_finish_trick(self, winner, points):
         self.game._on_finish_trick(winner, points)
