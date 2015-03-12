@@ -81,6 +81,12 @@ class HeartsGame(object):
         if self._preround.have_all_passed():
             self._finish_preround()
 
+    def is_hearts_broken(self):
+        if self._state != "playing":
+            raise e.RoundNotInProgressError()
+
+        return self._round.is_hearts_broken()
+
     def _finish_preround(self):
         self._preround.finish_passing()
         for obs in self._observers:
@@ -100,7 +106,11 @@ class HeartsGame(object):
         if self._state != "playing":
             raise e.RoundNotInProgressError()
 
+        player_index = self._round.get_current_player()
         self._round.play_card(card)
+
+        for obs in self._observers:
+            obs.on_play_card(player_index, card)
 
     def add_observer(self, observer):
         self._observers.append(observer)

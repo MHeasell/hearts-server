@@ -75,6 +75,27 @@ for code in default_exceptions.iterkeys():
     app.error_handler_spec[None][code] = create_json_error
 
 
+def send_ws_event(ws, event_type, data=None):
+    if data is None:
+        d = {"type": event_type}
+    else:
+        d = data.copy()
+        d["type"] = event_type
+
+    wire_str = json.dumps(d)
+    ws.send(wire_str)
+    print "sent: " + wire_str
+
+
+def receive_ws_event(ws):
+    data = ws.receive()
+    if data is None:
+        return None
+
+    print "received: " + data
+    return json.loads(data)
+
+
 def find_requester_user_id():
     ticket = request.args.get("ticket", "")
     if not ticket:
@@ -108,7 +129,7 @@ def users_resource():
         try:
             player_id = player_svc.create_player(name)
         except PlayerStateError:
-            raise APIError(419, "A player with this name already exists.")
+            raise APIError(409, "A player with this name already exists.")
 
         ticket = ticket_svc.create_ticket_for(player_id)
 
@@ -126,24 +147,42 @@ def user_resource(player_id):
     return jsonify(id=data["id"], name=data["name"], current_game=data["current_game"])
 
 
+def receive_auth(ws):
+    while True:
+        msg = receive_ws_event(ws)
+        if msg is None:
+            return None
+
+        if msg.get("type") != "auth":
+            print "got non-auth message, ignoring."
+            continue
+
+        print "got auth message"
+        ticket = msg.get("ticket")
+        if not ticket:
+            print "got auth with no ticket, ignoring."
+            continue
+
+        player_id = ticket_svc.get_player_id(ticket)
+        if player_id is None:
+            print "ticket not valid"
+            send_ws_event(ws, "auth_fail")
+            continue
+
+        send_ws_event(ws, "auth_success")
+        return player_id
+
+
 @sockets.route("/play")
 def connect_to_queue(ws):
     print "got connection"
 
-    # auth
-    ticket = ws.receive()
-    if ticket is None:
+    player_id = receive_auth(ws)
+    if player_id is None:
         print "client bailed, exiting."
         return
 
-    print "got ticket"
-
-    player_id = ticket_svc.get_player_id(ticket)
-    if player_id is None:
-        print "ticket not valid, disconnecting"
-        return  # disconnect un-authenticated users
-
-    print "ticket is for user: " + str(player_id)
+    print "authenticated as user: " + str(player_id)
 
     game_id = game_backend.try_get_player_game(player_id)
     if game_id is None:
@@ -152,9 +191,8 @@ def connect_to_queue(ws):
         _handle_game_connection(ws, player_id, game_id)
 
 
-def _handle_message(game, player_idx, msg):
-    data = json.loads(msg)
-    action = data["action"]
+def _handle_message(game, player_idx, data):
+    action = data["type"]
 
     if action == "play_card":
         card = data["card"]
@@ -170,37 +208,39 @@ def _handle_message(game, player_idx, msg):
         game.pass_cards(player_idx, cards)
 
     else:
-        print "received unknown message: " + msg
+        print "received invalid message type: " + action
 
 
 def _serialize_game_state(game_info, player_index):
     game = game_info["game_object"]
 
     state = game.get_state()
+    state_data = {}
 
     data = {
         "game_id": game_info["id"],
         "players": game_info["players"],
         "scores": game.get_scores(),
-        "state": state
+        "state": state,
+        "state_data": state_data
     }
-
 
     if state == "init":
         pass
     elif state == "playing":
-        data["hand"] = game.get_hand(player_index)
-        data["trick"] = game.get_trick()
-        data["current_player"] = game.get_current_player()
-        data["round_scores"] = game.get_round_scores()
+        state_data["hand"] = game.get_hand(player_index)
+        state_data["trick"] = game.get_trick()
+        state_data["current_player"] = game.get_current_player()
+        state_data["round_scores"] = game.get_round_scores()
+        state_data["is_hearts_broken"] = game.is_hearts_broken()
     elif state == "passing":
-        data["hand"] = game.get_hand(player_index)
-        data["pass_direction"] = game.get_pass_direction()
-        data["have_passed"] = game.has_player_passed(player_index)
+        state_data["hand"] = game.get_hand(player_index)
+        state_data["pass_direction"] = game.get_pass_direction()
+        state_data["have_passed"] = game.has_player_passed(player_index)
     else:
         raise Exception("Invalid game state: " + str(state))
 
-    return json.dumps(data)
+    return data
 
 
 class ConnectionObserver(object):
@@ -216,45 +256,48 @@ class ConnectionObserver(object):
         hand = self.game.get_hand(self.player_index)
 
         data = {
-            "type": "event",
-            "event": "start_preround",
             "pass_direction": pass_direction,
             "hand": hand
         }
 
-        self.ws.send(json.dumps(data))
+        self._send_event("start_preround", data)
 
     def on_finish_preround(self):
         cards = self.game.get_received_cards(self.player_index)
 
         data = {
-            "type": "event",
-            "event": "finish_preround",
             "received_cards": cards
         }
 
-        self.ws.send(json.dumps(data))
+        self._send_event("finish_preround", data)
 
     def on_start_playing(self):
         hand = self.game.get_hand(self.player_index)
 
         data = {
-            "type": "event",
-            "event": "start_playing",
             "hand": hand
         }
 
-        self.ws.send(json.dumps(data))
+        self._send_event("start_playing", data)
+
+    def on_play_card(self, player_index, card):
+        data = {
+            "player": player_index,
+            "card": card
+        }
+
+        self._send_event("play_card", data)
 
     def on_finish_trick(self, winner, points):
         data = {
-            "type": "event",
-            "event": "finish_trick",
             "winner": winner,
             "points": points
         }
 
-        self.ws.send(json.dumps(data))
+        self._send_event("finish_trick", data)
+
+    def _send_event(self, event_type, data):
+        send_ws_event(self.ws, event_type, data)
 
 
 def _handle_game_connection(ws, player_id, game_id):
@@ -262,7 +305,7 @@ def _handle_game_connection(ws, player_id, game_id):
     game_info = game_backend.get_game_info(game_id)
     player_idx = game_info["players"].index(player_id)
 
-    ws.send(_serialize_game_state(game_info, player_idx))
+    send_ws_event(ws, "game_data", _serialize_game_state(game_info, player_idx))
 
     game = game_info["game_object"]
     observer = ConnectionObserver(game, player_idx, ws)
@@ -271,7 +314,7 @@ def _handle_game_connection(ws, player_id, game_id):
     try:
         # listen for commands from the client
         while True:
-            msg = ws.receive()
+            msg = receive_ws_event(ws)
             if msg is None:
                 print "player disconnected"
                 return
