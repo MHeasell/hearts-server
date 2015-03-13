@@ -12,7 +12,6 @@ from flask import Flask, jsonify, abort, request
 from flask_cors import CORS
 from flask_sockets import Sockets
 
-
 from redis import StrictRedis
 
 from werkzeug.exceptions import default_exceptions, HTTPException
