@@ -32,3 +32,7 @@ class InvalidMoveError(GameStateError):
 
 class InvalidHandError(GameStateError):
     pass
+
+
+class GameAlreadyStartedError(GameStateError):
+    pass

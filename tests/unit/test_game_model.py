@@ -85,7 +85,20 @@ class TestHeartsModel(unittest.TestCase):
 
         game.start()
 
-        observer.on_start.assert_called_once_with()
+        observer.on_start_round.assert_called_once_with(0)
+
+    def test_start_game_twice(self):
+        """
+        Tests that we can't call start() more than once.
+        """
+        game = HeartsGame()
+        game.start()
+
+        try:
+            game.start()
+            self.fail()
+        except e.GameAlreadyStartedError:
+            pass  # test succeeded
 
     def test_start_game_preround(self):
         """
@@ -103,9 +116,11 @@ class TestHeartsModel(unittest.TestCase):
         self.assertEqual("left", game.get_pass_direction())
         self.assertEqual(example_hands[0], game.get_hand(0))
 
-        observer.on_start_preround.assert_called_once_with("left")
-
     def test_finish_passing(self):
+        """
+        Tests that the state transitions properly
+        into playing when passing is finished.
+        """
         game = HeartsGame(deal_func=lambda: example_hands)
         observer = Mock()
         game.add_observer(observer)
@@ -119,8 +134,6 @@ class TestHeartsModel(unittest.TestCase):
         self.assertEqual(1, game.get_current_player())
         new_hand = example_hands[0][:3] + example_hands[1][3:]
         self.assertEqual(set(new_hand), set(game.get_hand(1)))
-
-        observer.on_start_playing.assert_called_once_with()
 
     def test_play_card(self):
         game = HeartsGame(deal_func=lambda: example_hands)
@@ -137,6 +150,10 @@ class TestHeartsModel(unittest.TestCase):
         self.assertEqual([{"player": 1, "card": "c2"}], game.get_trick())
 
     def test_finish_trick(self):
+        """
+        Tests that observers are notified
+        when a trick is finished.
+        """
         game = HeartsGame(deal_func=lambda: example_hands)
 
         game.start()
@@ -154,6 +171,66 @@ class TestHeartsModel(unittest.TestCase):
         game.play_card("c4")
 
         observer.on_finish_trick.assert_called_once_with(2, 0)
+
+    def test_finish_round(self):
+        """
+        Tests that when the round is finished,
+        the scores are updated,
+        observers are notified
+        and a new round starts.
+        """
+
+        # we're going to cheat and deal only three cards
+        # to each player
+        hands = [
+            ["c2", "c3", "ck"],
+            ["c5", "c6", "h2"],
+            ["c7", "c8", "h3"],
+            ["c9", "c10", "sq"]
+        ]
+
+        game = HeartsGame(deal_func=lambda: hands)
+        game.start()
+        for i in range(4):
+            game.pass_cards(i, hands[i])
+
+        self.assertEqual(1, game.get_current_player())
+
+        game.play_card("c2")
+        game.play_card("c5")
+        game.play_card("c7")
+        game.play_card("c9")
+
+        self.assertEqual(0, game.get_current_player())
+
+        game.play_card("sq")
+        game.play_card("c3")
+        game.play_card("c6")
+        game.play_card("c8")
+
+        # player 0 wins this hand, getting 13 points
+        self.assertEqual(13, game.get_round_score(0))
+        self.assertEqual(0, game.get_current_player())
+
+        observer = Mock()
+        game.add_observer(observer)
+
+        game.play_card("c10")
+        game.play_card("ck")
+        game.play_card("h2")
+        game.play_card("h3")
+
+        # player 1 wins this hand, getting 2 points
+
+        # the round should now be over
+        # and a new round should start
+        self.assertEqual(1, game.get_current_round_number())
+        self.assertEqual(13, game.get_score(0))
+        self.assertEqual(2, game.get_score(1))
+        self.assertEqual([13, 2, 0, 0], game.get_scores())
+        observer.on_finish_round.assert_called_once_with([13, 2, 0, 0])
+        observer.on_start_round.assert_called_once_with(1)
+
 
 if __name__ == "__main__":
     unittest.main()

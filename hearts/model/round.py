@@ -105,3 +105,25 @@ class HeartsRound(object):
 
         for obs in self._observers:
             obs.on_finish_trick(winner, points)
+
+        if all(map(lambda x: len(x) == 0, self.hands)):
+            self._finish_round()
+
+    def _finish_round(self):
+        self._process_end_round_scores()
+
+        for obs in self._observers:
+            obs.on_finish_round(self.scores)
+
+    def _process_end_round_scores(self):
+        # check for shooting the moon
+        # and adjust scores appropriately.
+        moon_shooter = None
+        for idx, score in enumerate(self.scores):
+            if score == 26:
+                moon_shooter = idx
+                break
+
+        if moon_shooter is not None:
+            self.scores = [26, 26, 26, 26]
+            self.scores[moon_shooter] = 0

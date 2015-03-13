@@ -252,13 +252,17 @@ def _serialize_game_state(game_info, player_index):
 
     if state == "init":
         pass
+    elif state == "game_over":
+        pass
     elif state == "playing":
+        state_data["round_number"] = game.get_current_round_number()
         state_data["hand"] = game.get_hand(player_index)
         state_data["trick"] = game.get_trick()
         state_data["current_player"] = game.get_current_player()
         state_data["round_scores"] = game.get_round_scores()
         state_data["is_hearts_broken"] = game.is_hearts_broken()
     elif state == "passing":
+        state_data["round_number"] = game.get_current_round_number()
         state_data["hand"] = game.get_hand(player_index)
         state_data["pass_direction"] = game.get_pass_direction()
         state_data["have_passed"] = game.has_player_passed(player_index)
@@ -282,7 +286,7 @@ class ConnectionObserver(object):
             "hand": hand
         }
 
-        self._send_event("start_preround", data)
+        self._send_event("start_round", data)
 
     def on_finish_passing(self):
         cards = self.game.get_received_cards(self.player_index)
@@ -291,7 +295,7 @@ class ConnectionObserver(object):
             "received_cards": cards
         }
 
-        self._send_event("finish_preround", data)
+        self._send_event("finish_passing", data)
 
     def on_play_card(self, player_index, card):
         if player_index == self.player_index:
@@ -307,6 +311,10 @@ class ConnectionObserver(object):
 
     def on_finish_trick(self, winner, points):
         pass
+
+    def on_finish_round(self, scores):
+        pass
+
 
     def _send_event(self, event_type, data):
         self.queue.put((event_type, data))

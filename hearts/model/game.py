@@ -13,12 +13,13 @@ class HeartsGame(object):
         self._preround = None
         self._deal_func = deal_func
         self._current_round = None
+        self._scores = [0, 0, 0, 0]
 
     def get_score(self, player_index):
-        return 0
+        return self._scores[player_index]
 
     def get_scores(self):
-        return [0, 0, 0, 0]
+        return list(self._scores)
 
     def get_current_round_number(self):
         if self._state != "playing" and self._state != "passing":
@@ -107,6 +108,9 @@ class HeartsGame(object):
         self._observers.remove(observer)
 
     def start(self):
+        if self._state != "init":
+            raise e.GameAlreadyStartedError()
+
         self._start_round()
 
     def _start_round(self):
@@ -153,6 +157,23 @@ class HeartsGame(object):
         for obs in self._observers:
             obs.on_finish_trick(winner, points)
 
+    def _on_finish_round(self, scores):
+        for idx, score in enumerate(scores):
+            self._scores[idx] += score
+
+        for obs in self._observers:
+            obs.on_finish_round(list(scores))
+
+        # game is over once someone gets too 100,
+        # otherwise we keep going.
+        if any(map(lambda x: x >= 100, self._scores)):
+            self._game_over()
+        else:
+            self._start_round()
+
+    def _game_over(self):
+        self._state = "game_over"
+
 
 class RoundObserver(object):
     def __init__(self, game):
@@ -163,3 +184,6 @@ class RoundObserver(object):
 
     def on_finish_trick(self, winner, points):
         self.game._on_finish_trick(winner, points)
+
+    def on_finish_round(self, scores):
+        self.game._on_finish_round(scores)
