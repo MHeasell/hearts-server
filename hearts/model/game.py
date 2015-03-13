@@ -117,7 +117,7 @@ class HeartsGame(object):
 
         hands = self._deal_func()
 
-        if self._current_round % 4 == 0:
+        if self._current_round % 4 == 3:
             self._start_playing(hands)
         else:
             self._start_preround(hands)
