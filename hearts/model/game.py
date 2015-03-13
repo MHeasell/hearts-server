@@ -12,12 +12,19 @@ class HeartsGame(object):
         self._state = "init"
         self._preround = None
         self._deal_func = deal_func
+        self._current_round = None
 
     def get_score(self, player_index):
         return 0
 
     def get_scores(self):
         return [0, 0, 0, 0]
+
+    def get_current_round_number(self):
+        if self._state != "playing" and self._state != "passing":
+            raise e.RoundNotInProgressError()
+
+        return self._current_round
 
     def get_round_score(self, player_index):
         if self._state != "playing":
@@ -87,21 +94,6 @@ class HeartsGame(object):
 
         return self._round.is_hearts_broken()
 
-    def _finish_preround(self):
-        self._preround.finish_passing()
-        for obs in self._observers:
-            obs.on_finish_preround()
-
-        self._start_playing(self._preround.get_all_hands())
-
-    def _start_playing(self, hands):
-        self._state = "playing"
-        self._round = HeartsRound(hands)
-        self._round.add_observer(RoundObserver(self))
-
-        for obs in self._observers:
-            obs.on_start_playing()
-
     def play_card(self, card):
         if self._state != "playing":
             raise e.RoundNotInProgressError()
@@ -118,14 +110,43 @@ class HeartsGame(object):
         for obs in self._observers:
             obs.on_start()
 
-        self._start_preround()
+        self._start_round()
 
-    def _start_preround(self):
-        self._state = "passing"
-        self._preround = HeartsPreRound(self._deal_func(), "left")
+    def _start_round(self):
+        if self._current_round is None:
+            self._current_round = 0
+        else:
+            self._current_round += 1
+
+        hands = self._deal_func()
+
+        if self._current_round % 4 == 0:
+            self._start_playing(hands)
+        else:
+            self._start_preround(hands)
 
         for obs in self._observers:
-            obs.on_start_preround("left")
+            obs.on_start_round(self._current_round)
+
+    def _start_preround(self, hands):
+        self._state = "passing"
+        pass_direction = self._get_pass_direction()
+        self._preround = HeartsPreRound(hands, pass_direction)
+
+    def _start_playing(self, hands):
+        self._state = "playing"
+        self._round = HeartsRound(hands)
+        self._round.add_observer(RoundObserver(self))
+
+    def _finish_preround(self):
+        self._preround.finish_passing()
+        for obs in self._observers:
+            obs.on_finish_passing()
+
+        self._start_playing(self._preround.get_all_hands())
+
+    def _get_pass_direction(self):
+        return ["left", "right", "across", "none"][self._current_round % 4]
 
     def _on_play_card(self, player_index, card):
         for obs in self._observers:

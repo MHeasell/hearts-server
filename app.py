@@ -274,20 +274,17 @@ class ConnectionObserver(object):
         self.player_index = player_index
         self.queue = queue
 
-    def on_start(self):
-        pass
-
-    def on_start_preround(self, pass_direction):
+    def on_start_round(self, round_number):
         hand = self.game.get_hand(self.player_index)
 
         data = {
-            "pass_direction": pass_direction,
+            "round_number": round_number,
             "hand": hand
         }
 
         self._send_event("start_preround", data)
 
-    def on_finish_preround(self):
+    def on_finish_passing(self):
         cards = self.game.get_received_cards(self.player_index)
 
         data = {
@@ -295,15 +292,6 @@ class ConnectionObserver(object):
         }
 
         self._send_event("finish_preround", data)
-
-    def on_start_playing(self):
-        hand = self.game.get_hand(self.player_index)
-
-        data = {
-            "hand": hand
-        }
-
-        self._send_event("start_playing", data)
 
     def on_play_card(self, player_index, card):
         if player_index == self.player_index:
@@ -318,12 +306,7 @@ class ConnectionObserver(object):
         self._send_event("play_card", data)
 
     def on_finish_trick(self, winner, points):
-        data = {
-            "winner": winner,
-            "points": points
-        }
-
-        self._send_event("finish_trick", data)
+        pass
 
     def _send_event(self, event_type, data):
         self.queue.put((event_type, data))
