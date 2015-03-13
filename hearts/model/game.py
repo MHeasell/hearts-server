@@ -107,9 +107,6 @@ class HeartsGame(object):
         self._observers.remove(observer)
 
     def start(self):
-        for obs in self._observers:
-            obs.on_start()
-
         self._start_round()
 
     def _start_round(self):
