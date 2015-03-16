@@ -18,6 +18,7 @@ class GameBackend(object):
 
         master = GameMaster(model, game_id)
         self._game_masters[game_id] = master
+        master.add_observer(self)
 
         self._players[game_id] = list(players)
 
@@ -47,9 +48,11 @@ class GameBackend(object):
         return player_id in self._player_mapping
 
     def on_game_finished(self, game_id):
+        print "game finished: " + str(game_id)
         self._destruct_game(game_id)
 
     def on_game_abandoned(self, game_id):
+        print "game abandoned: " + str(game_id)
         self._destruct_game(game_id)
 
     def _destruct_game(self, game_id):

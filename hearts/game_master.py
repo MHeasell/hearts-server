@@ -18,6 +18,12 @@ class GameMaster(object):
 
         game.add_observer(self)
 
+    def add_observer(self, observer):
+        self._observers.append(observer)
+
+    def remove_observer(self, observer):
+        self._observers.remove(observer)
+
     def connect(self, ws, player_id, player_index):
         queue = gq.Queue()
         queue_greenlet = gevent.spawn(_consume_events, ws, queue)
@@ -133,6 +139,9 @@ class GameMaster(object):
     def _on_disconnect(self, player_index):
         data = {"index": player_index}
         self._broadcast_event_from(player_index, "player_disconnected", data)
+
+        if not any(self._players):
+            self._on_all_disconnected()
 
     def _on_all_disconnected(self):
         if self._game.get_state() != "game_over":
