@@ -27,3 +27,7 @@ def send_command_fail(ws, command_id):
 
 def send_command_success(ws, command_id):
     send_ws_event(ws, "command_success", {"command_id": command_id})
+
+
+def send_query_success(ws, command_id, data):
+    send_ws_event(ws, "query_success", {"command_id": command_id, "data": data})

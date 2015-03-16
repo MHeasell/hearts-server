@@ -27,8 +27,7 @@ class GameMaster(object):
             "queue": queue,
         }
 
-        state = self._serialize_game_state(player_index)
-        wsutil.send_ws_event(ws, "game_data", state)
+        wsutil.send_ws_event(ws, "connected_to_game")
 
         self._on_connect(player_index, player_id)
 
@@ -118,6 +117,10 @@ class GameMaster(object):
                 wsutil.send_command_fail(ws, command_id)
 
             wsutil.send_command_success(ws, command_id)
+
+        elif action == "get_state":
+            state = self._serialize_game_state(player_index)
+            wsutil.send_query_success(ws, command_id, state)
 
         else:
             print "received invalid message type: " + action
