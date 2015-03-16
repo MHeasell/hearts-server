@@ -21,6 +21,8 @@ from hearts.GameBackend import GameBackend
 
 from hearts.game_sockets import GameWebsocketHandler
 
+import hearts.util as u
+
 config = ConfigParser.RawConfigParser()
 config.read('config.ini')
 
@@ -101,11 +103,16 @@ def handle_api_error(error):
 def users_resource():
     if request.method == "POST":
         name = request.form["name"]
+        password = request.form.get("password")
+        if not password:
+            password = u.gen_temp_password()
 
         try:
-            player_id = player_svc.create_player(name)
+            player_id = player_svc.create_player(name, password)
         except PlayerStateError:
-            raise APIError(409, "A player with this name already exists.")
+            player_id = player_svc.get_player_id(name)
+            if not player_svc.auth_player(player_id, password):
+                raise APIError(409, "A player with this name already exists.")
 
         ticket = ticket_svc.create_ticket_for(player_id)
 

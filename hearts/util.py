@@ -6,6 +6,13 @@ import json
 
 from redis import WatchError
 
+import random
+import string
+
+
+def gen_temp_password():
+    return "".join(random.choice(string.ascii_letters + string.digits) for _ in range(16))
+
 
 def gen_deck():
     return [s + str(num)
