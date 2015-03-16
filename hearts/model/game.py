@@ -174,6 +174,9 @@ class HeartsGame(object):
     def _game_over(self):
         self._state = "game_over"
 
+        for obs in self._observers:
+            obs.on_finish_game()
+
 
 class RoundObserver(object):
     def __init__(self, game):

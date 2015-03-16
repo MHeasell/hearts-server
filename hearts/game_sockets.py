@@ -264,5 +264,8 @@ class ConnectionObserver(object):
     def on_finish_round(self, scores):
         pass
 
+    def on_finish_game(self):
+        pass
+
     def _send_event(self, event_type, data):
         self.queue.put((event_type, data))
