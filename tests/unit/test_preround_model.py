@@ -59,6 +59,35 @@ class TestHeartsPreRound(unittest.TestCase):
         except m.CardsNotInHandError:
             pass  # test succeeded
 
+
+    def test_pass_too_few_cards(self):
+        """
+        We should not be allowed to pass fewer than 3 cards.
+        """
+        round = HeartsPreRound(example_hands)
+
+        cards_to_pass = ["h5", "s7"]
+
+        try:
+            round.pass_cards(0, cards_to_pass)
+            self.fail()
+        except m.InvalidMoveError:
+            pass  # test succeeded
+
+    def test_pass_too_many_cards(self):
+        """
+        We should not be allowed to pass fewer than 3 cards.
+        """
+        round = HeartsPreRound(example_hands)
+
+        cards_to_pass = ["h5", "s7", "c2", "h1"]
+
+        try:
+            round.pass_cards(0, cards_to_pass)
+            self.fail()
+        except m.InvalidMoveError:
+            pass  # test succeeded
+
     def test_pass_cards_twice(self):
         """
         We should not be allowed to pass cards more than once.

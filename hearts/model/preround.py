@@ -1,6 +1,7 @@
 from exceptions import CardsAlreadyPassedError
 from exceptions import CardsNotInHandError
 from exceptions import PlayersYetToPassError
+import exceptions as e
 
 import hearts.util as u
 
@@ -32,6 +33,9 @@ class HeartsPreRound(object):
     def pass_cards(self, player_index, cards):
         if self.passed_cards[player_index] is not None:
             raise CardsAlreadyPassedError()
+
+        if len(cards) != 3:
+            raise e.InvalidMoveError()
 
         # copy cards to prevent shenanigans
         cards_to_pass = list(cards)
