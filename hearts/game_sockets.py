@@ -37,6 +37,7 @@ class GameWebsocketHandler(object):
             if msg.get("type") != "auth":
                 print "got non-auth message, ignoring."
                 wsutil.send_command_fail(ws, command_id)
+                continue
 
             print "got auth message"
             ticket = msg.get("ticket")

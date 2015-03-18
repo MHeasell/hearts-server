@@ -112,6 +112,7 @@ class GameMaster(object):
                 game.play_card(card)
             except GameStateError:
                 wsutil.send_command_fail(ws, command_id)
+                return
 
             wsutil.send_command_success(ws, command_id)
 
@@ -121,6 +122,7 @@ class GameMaster(object):
                 game.pass_cards(player_idx, cards)
             except GameStateError:
                 wsutil.send_command_fail(ws, command_id)
+                return
 
             wsutil.send_command_success(ws, command_id)
 
