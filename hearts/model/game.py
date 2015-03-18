@@ -113,6 +113,15 @@ class HeartsGame(object):
 
         self._start_round()
 
+    def is_player_above_hundred(self):
+        return any(map(lambda x: x >= 100, self._scores))
+
+    def start_next_round(self):
+        self._start_round()
+
+    def end_game(self):
+        self._game_over()
+
     def _start_round(self):
         if self._current_round is None:
             self._current_round = 0
@@ -163,13 +172,6 @@ class HeartsGame(object):
 
         for obs in self._observers:
             obs.on_finish_round(list(scores))
-
-        # game is over once someone gets too 100,
-        # otherwise we keep going.
-        if any(map(lambda x: x >= 100, self._scores)):
-            self._game_over()
-        else:
-            self._start_round()
 
     def _game_over(self):
         self._state = "game_over"

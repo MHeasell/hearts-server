@@ -88,11 +88,22 @@ class GameMaster(object):
         pass
 
     def on_finish_round(self, scores):
-        pass
+        # The client doesn't yet cope
+        # with starting the next round immediately,
+        # since it wants to wait to display the trick winner.
+        # So, we wait some time for the client to do that
+        # before starting the next round.
+        gevent.spawn_later(2, self._continue_post_round)
 
     def on_finish_game(self):
         for obs in self._observers:
             obs.on_game_finished(self._game_id)
+
+    def _continue_post_round(self):
+        if self._game.is_player_above_hundred():
+            self._game.end_game()
+        else:
+            self._game.start_next_round()
 
     def _receive_message(self, player_index, msg):
         data = msg
