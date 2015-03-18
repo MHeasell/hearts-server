@@ -95,6 +95,12 @@ class HeartsGame(object):
 
         return self._round.is_hearts_broken()
 
+    def is_first_trick(self):
+        if self._state != "playing":
+            raise e.RoundNotInProgressError()
+
+        return self._round.is_first_trick()
+
     def play_card(self, card):
         if self._state != "playing":
             raise e.RoundNotInProgressError()

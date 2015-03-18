@@ -13,7 +13,7 @@ class HeartsRound(object):
         self.trick = []
         self.is_first_move = True
         self._is_hearts_broken = False
-        self.is_first_trick = True
+        self._is_first_trick = True
         self._observers = []
 
         for i, hand in enumerate(hands):
@@ -70,7 +70,7 @@ class HeartsRound(object):
         if card_suit == "h":
             self._is_hearts_broken = True
 
-        if self.is_first_trick and (card_suit == "h" or card == "sq"):
+        if self._is_first_trick and (card_suit == "h" or card == "sq"):
             raise InvalidMoveError()
 
         player = self.current_player
@@ -92,6 +92,9 @@ class HeartsRound(object):
     def is_hearts_broken(self):
         return self._is_hearts_broken
 
+    def is_first_trick(self):
+        return self._is_first_trick
+
     def _finish_trick(self):
         # move onto the next trick
         cards = map(lambda x: x["card"], self.trick)
@@ -99,7 +102,7 @@ class HeartsRound(object):
         winner = self.trick[win_idx]["player"]
         self.current_player = winner
         self.trick = []
-        self.is_first_trick = False
+        self._is_first_trick = False
         points = u.sum_points(cards)
         self.scores[winner] += points
 

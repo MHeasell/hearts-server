@@ -210,6 +210,7 @@ class GameMaster(object):
             state_data["current_player"] = game.get_current_player()
             state_data["round_scores"] = game.get_round_scores()
             state_data["is_hearts_broken"] = game.is_hearts_broken()
+            state_data["is_first_trick"] = game.is_first_trick()
         elif state == "passing":
             state_data["round_number"] = game.get_current_round_number()
             state_data["hand"] = game.get_hand(player_index)
