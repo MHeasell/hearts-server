@@ -99,5 +99,8 @@ class GameWebsocketHandler(object):
 
         game_master = self.game_backend.get_game_master(game_id)
 
+        if game_master.is_connected(player_index):
+            return
+
         # this will block until connection close
         game_master.connect(ws, player_id, player_index)

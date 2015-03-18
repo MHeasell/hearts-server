@@ -4,6 +4,10 @@ import gevent.queue as gq
 import hearts.websocket_util as wsutil
 
 
+class PlayerAlreadyConnectedError(Exception):
+    pass
+
+
 def _consume_events(ws, queue):
         for item in queue:
             wsutil.send_ws_event(ws, item[0], item[1])
@@ -25,6 +29,9 @@ class GameMaster(object):
         self._observers.remove(observer)
 
     def connect(self, ws, player_id, player_index):
+        if self._players[player_index] is not None:
+            raise PlayerAlreadyConnectedError()
+
         queue = gq.Queue()
         queue_greenlet = gevent.spawn(_consume_events, ws, queue)
         self._players[player_index] = {
@@ -48,6 +55,9 @@ class GameMaster(object):
                     self._receive_message(player_index, msg)
         finally:
             queue_greenlet.kill()
+
+    def is_connected(self, player_index):
+        return self._players[player_index] is not None
 
     def on_start_round(self, round_number):
         for idx, player in enumerate(self._players):
