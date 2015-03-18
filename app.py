@@ -127,7 +127,7 @@ def user_resource(player_id):
     if data is None:
         raise APIError(404, "Player not found.")
 
-    return jsonify(id=data["id"], name=data["name"], current_game=data["current_game"])
+    return jsonify(id=data["id"], name=data["name"])
 
 
 @sockets.route("/play")
