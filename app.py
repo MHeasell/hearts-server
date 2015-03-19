@@ -4,7 +4,6 @@ from geventwebsocket.handler import WebSocketHandler
 import logging
 
 from flask import Flask, jsonify, abort, request
-from flask_cors import CORS
 from flask_sockets import Sockets
 
 from redis import StrictRedis
@@ -35,6 +34,7 @@ use_cors = config.getboolean("Main", "use_cors")
 app = Flask(__name__)
 
 if use_cors:
+    from flask_cors import CORS
     CORS(app)
 
 sockets = Sockets(app)
