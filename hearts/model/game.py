@@ -75,6 +75,12 @@ class HeartsGame(object):
 
         return self._preround.get_received_cards(player_index)
 
+    def get_passed_cards(self, player_index):
+        if self._state != "passing":
+            raise e.PassingNotInProgressError()
+
+        return self._preround.get_passed_cards(player_index)
+
     def has_player_passed(self, player_index):
         if self._state != "passing":
             raise e.PassingNotInProgressError()

@@ -226,6 +226,7 @@ class GameMaster(object):
             state_data["hand"] = game.get_hand(player_index)
             state_data["pass_direction"] = game.get_pass_direction()
             state_data["have_passed"] = game.has_player_passed(player_index)
+            state_data["passed_cards"] = game.get_passed_cards(player_index)
         else:
             raise Exception("Invalid game state: " + str(state))
 

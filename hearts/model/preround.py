@@ -50,6 +50,9 @@ class HeartsPreRound(object):
         from_idx = self._get_from_player_index(player_index)
         return self.passed_cards[from_idx]
 
+    def get_passed_cards(self, player_index):
+        return self.passed_cards[player_index]
+
     def finish_passing(self):
         for cards in self.passed_cards:
             if cards is None:
