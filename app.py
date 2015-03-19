@@ -30,6 +30,8 @@ redis_port = config.getint("Redis", "port")
 redis_db = config.getint("Redis", "db")
 
 use_cors = config.getboolean("Main", "use_cors")
+main_host = config.get("Main", "host")
+main_port = config.getint("Main", "port")
 
 app = Flask(__name__)
 
@@ -144,7 +146,7 @@ if __name__ == "__main__":
 
     app.debug = True
 
-    server = WSGIServer(('', 5000), app, handler_class=WebSocketHandler)
+    server = WSGIServer((main_host, main_port), app, handler_class=WebSocketHandler)
     server.logger = l
 
     server.serve_forever()
