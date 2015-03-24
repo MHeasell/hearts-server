@@ -74,15 +74,11 @@ def connect_to_queue(ws):
 
 
 if __name__ == "__main__":
-    l = logging.getLogger('cocks')
-    l.setLevel(logging.INFO)
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    l.addHandler(ch)
+    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().addHandler(logging.StreamHandler())
 
     app.debug = True
 
     server = WSGIServer((main_host, main_port), app, handler_class=WebSocketHandler)
-    server.logger = l
 
     server.serve_forever()
