@@ -43,7 +43,7 @@ class GameWebsocketHandler(object):
             username = msg.get("name")
             passwd = msg.get("password")
 
-            if not username or passwd:
+            if not username or not passwd:
                 print "got auth with incomplete credentials, failing."
                 wsutil.send_command_fail(ws, command_id)
                 continue
