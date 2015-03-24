@@ -7,8 +7,8 @@ import hearts.websocket_util as wsutil
 
 class GameWebsocketHandler(object):
 
-    def __init__(self, ticket_svc, queue_backend, game_backend):
-        self.ticket_svc = ticket_svc
+    def __init__(self, player_svc, queue_backend, game_backend):
+        self.player_svc = player_svc
         self.queue_backend = queue_backend
         self.game_backend = game_backend
 
@@ -40,20 +40,27 @@ class GameWebsocketHandler(object):
                 continue
 
             print "got auth message"
-            ticket = msg.get("ticket")
-            if not ticket:
-                print "got auth with no ticket, failing."
+            username = msg.get("name")
+            passwd = msg.get("password")
+
+            if not username or passwd:
+                print "got auth with incomplete credentials, failing."
                 wsutil.send_command_fail(ws, command_id)
                 continue
 
-            player_id = self.ticket_svc.get_player_id(ticket)
+            player_id = self.player_svc.get_player_id(username)
             if player_id is None:
-                print "ticket not valid"
+                print "player does not exist, creating."
+                self.player_svc.create_player(username, passwd)
+                wsutil.send_command_success(ws, command_id)
+                return
+
+            if self.player_svc.auth_player(player_id, passwd):
+                wsutil.send_command_success(ws, command_id)
+                return player_id
+            else:
                 wsutil.send_command_fail(ws, command_id)
                 continue
-
-            wsutil.send_command_success(ws, command_id)
-            return player_id
 
     def _handle_queue_connection(self, ws, player_id):
         # add to queue
