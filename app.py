@@ -43,7 +43,7 @@ sockets = Sockets(app)
 
 redis = StrictRedis(host=redis_host, port=redis_port, db=redis_db)
 
-ticket_svc = TicketService(redis)
+ticket_svc = TicketService()
 player_svc = PlayerService()
 
 game_backend = GameBackend()
