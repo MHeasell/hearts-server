@@ -38,7 +38,7 @@ sockets = Sockets(app)
 
 player_svc = PlayerService()
 
-game_backend = GameBackend()
+game_backend = GameBackend(player_svc)
 queue_backend = GameQueueBackend(game_backend)
 
 ws_handler = GameWebsocketHandler(player_svc, queue_backend, game_backend)

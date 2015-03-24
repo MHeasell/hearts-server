@@ -91,7 +91,8 @@ class GameWebsocketHandler(object):
         try:
             result.get()
         except PlayerUnregisteredError:
-            print "Player was unregistered, disconnecting."
+            print "Player was unregistered, disconnecting and deleting player."
+            self.player_svc.remove_player(player_id)
             return
 
         listen_greenlet.kill()

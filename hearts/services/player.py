@@ -66,3 +66,8 @@ class PlayerService(object):
 
         pwd_hash = player["password_hash"]
         return pwd_context.verify(password, pwd_hash)
+
+    def remove_player(self, player_id):
+        name = self._players[player_id]["name"]
+        del self._usernames[name]
+        del self._players[player_id]

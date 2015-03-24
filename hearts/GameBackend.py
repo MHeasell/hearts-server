@@ -3,11 +3,12 @@ from hearts.game_master import GameMaster
 
 
 class GameBackend(object):
-    def __init__(self):
+    def __init__(self, player_svc):
         self._next_game_id = 1
         self._game_masters = {}
         self._players = {}
         self._player_mapping = {}
+        self._player_svc = player_svc
 
     def create_game(self, players):
         game_id = self._next_game_id
@@ -58,6 +59,7 @@ class GameBackend(object):
     def _destruct_game(self, game_id):
         for player in self._players[game_id]:
             del self._player_mapping[player]
+            self._player_svc.remove_player(player)
 
         del self._players[game_id]
         del self._game_masters[game_id]
