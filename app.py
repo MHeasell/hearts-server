@@ -20,10 +20,6 @@ from hearts.game_sockets import GameWebsocketHandler
 config = ConfigParser.RawConfigParser()
 config.read('config.ini')
 
-redis_host = config.get("Redis", "host")
-redis_port = config.getint("Redis", "port")
-redis_db = config.getint("Redis", "db")
-
 use_cors = config.getboolean("Main", "use_cors")
 main_host = config.get("Main", "host")
 main_port = config.getint("Main", "port")
