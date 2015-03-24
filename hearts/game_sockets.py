@@ -56,9 +56,9 @@ class GameWebsocketHandler(object):
             player_id = self.player_svc.get_player_id(username)
             if player_id is None:
                 print "player does not exist, creating."
-                self.player_svc.create_player(username, passwd)
+                player_id = self.player_svc.create_player(username, passwd)
                 wsutil.send_command_success(ws, command_id)
-                return
+                return player_id
 
             if self.player_svc.auth_player(player_id, passwd):
                 wsutil.send_command_success(ws, command_id)
