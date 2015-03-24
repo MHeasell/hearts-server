@@ -1,7 +1,5 @@
 import unittest
 
-from test_utils import redis_utils
-
 from hearts.services.player import PlayerService, PlayerStateError
 
 
