@@ -223,12 +223,15 @@ class TestHeartsModel(unittest.TestCase):
         # player 1 wins this hand, getting 2 points
 
         # the round should now be over
-        # and a new round should start
-        self.assertEqual(1, game.get_current_round_number())
+        self.assertEqual(0, game.get_current_round_number())
         self.assertEqual(13, game.get_score(0))
         self.assertEqual(2, game.get_score(1))
         self.assertEqual([13, 2, 0, 0], game.get_scores())
         observer.on_finish_round.assert_called_once_with([13, 2, 0, 0])
+
+        # We are required to manually start the next round.
+        game.start_next_round()
+        self.assertEqual(1, game.get_current_round_number())
         observer.on_start_round.assert_called_once_with(1)
 
 
