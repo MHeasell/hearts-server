@@ -13,7 +13,7 @@ import ConfigParser
 from hearts.services.player import PlayerService
 
 from hearts.queue_backend import GameQueueBackend
-from hearts.GameBackend import GameBackend
+from hearts.game_backend import GameBackend
 
 from hearts.game_sockets import GameWebsocketHandler
 
