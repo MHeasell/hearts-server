@@ -56,6 +56,11 @@ class GameWebsocketHandler(object):
             if not passwd:
                 passwd = u.gen_temp_password()
 
+            if len(username) > 20 or len(passwd) > 50:
+                self.logger.info("Credentials too long, rejecting.")
+                wsutil.send_command_fail(ws, command_id)
+                continue
+
             player_id = self.player_svc.get_player_id(username)
             if player_id is None:
                 self.logger.info("Player with name '%s' does not exist, creating.", username)
