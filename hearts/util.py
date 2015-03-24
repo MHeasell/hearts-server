@@ -12,13 +12,9 @@ def gen_temp_password():
     return "".join(random.choice(string.ascii_letters + string.digits) for _ in range(16))
 
 
-def gen_deck():
-    return [s + str(num)
-            for s in ["c", "s", "d", "h"]
-            for num in range(1, 11) + ["j", "q", "k"]]
-
-
-DECK = gen_deck()
+DECK = [s + str(num)
+        for s in ["c", "s", "d", "h"]
+        for num in range(1, 11) + ["j", "q", "k"]]
 
 
 def deal_hands():
