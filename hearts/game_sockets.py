@@ -4,6 +4,8 @@ from hearts.queue_backend import PlayerUnregisteredError
 
 import hearts.websocket_util as wsutil
 
+import hearts.util as u
+
 
 class GameWebsocketHandler(object):
 
@@ -43,10 +45,13 @@ class GameWebsocketHandler(object):
             username = msg.get("name")
             passwd = msg.get("password")
 
-            if not username or not passwd:
+            if not username:
                 print "got auth with incomplete credentials, failing."
                 wsutil.send_command_fail(ws, command_id)
                 continue
+
+            if not passwd:
+                passwd = u.gen_temp_password()
 
             player_id = self.player_svc.get_player_id(username)
             if player_id is None:
