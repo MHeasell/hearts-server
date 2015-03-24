@@ -1,4 +1,7 @@
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 def send_ws_event(ws, event_type, data=None):
     if data is None:
@@ -9,7 +12,7 @@ def send_ws_event(ws, event_type, data=None):
 
     wire_str = json.dumps(d)
     ws.send(wire_str)
-    print "sent: " + wire_str
+    logger.debug("Sent: %s", wire_str)
 
 
 def receive_ws_event(ws):
@@ -17,7 +20,7 @@ def receive_ws_event(ws):
     if data is None:
         return None
 
-    print "received: " + data
+    logger.debug("Received: %s", data)
     return json.loads(data)
 
 

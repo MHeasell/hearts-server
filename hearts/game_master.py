@@ -2,6 +2,7 @@ from hearts.model.exceptions import GameStateError
 import gevent
 import gevent.queue as gq
 import hearts.websocket_util as wsutil
+import logging
 
 
 class PlayerAlreadyConnectedError(Exception):
@@ -19,6 +20,7 @@ class GameMaster(object):
         self._game = game
         self._players = [None, None, None, None]
         self._observers = []
+        self.logger = logging.getLogger(__name__)
 
         game.add_observer(self)
 
@@ -152,7 +154,7 @@ class GameMaster(object):
             wsutil.send_query_success(ws, command_id, state)
 
         else:
-            print "received invalid message type: " + action
+            self.logger.warning("Received invalid message type: %s", action)
             wsutil.send_command_fail(ws, command_id)
 
     def _on_connect(self, player_index, player_name):

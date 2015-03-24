@@ -6,6 +6,8 @@ import hearts.websocket_util as wsutil
 
 import hearts.util as u
 
+import logging
+
 
 class GameWebsocketHandler(object):
 
@@ -13,15 +15,16 @@ class GameWebsocketHandler(object):
         self.player_svc = player_svc
         self.queue_backend = queue_backend
         self.game_backend = game_backend
+        self.logger = logging.getLogger(__name__)
 
     def handle_ws(self, ws):
-        print "got connection"
+        self.logger.info("Got connection.")
         player_id = self._receive_auth(ws)
         if player_id is None:
-            print "client bailed, exiting."
+            self.logger.info("Client disconnected during auth.")
             return
 
-        print "authenticated as user: " + str(player_id)
+        self.logger.info("Authenticated as user %d.", player_id)
 
         if self.game_backend.is_in_game(player_id):
             self._handle_game_connection(ws, player_id)
@@ -37,16 +40,16 @@ class GameWebsocketHandler(object):
             command_id = msg["command_id"]
 
             if msg.get("type") != "auth":
-                print "got non-auth message, ignoring."
+                self.logger.info("Got non-auth message, ignoring.")
                 wsutil.send_command_fail(ws, command_id)
                 continue
 
-            print "got auth message"
+            self.logger.info("Got auth message.")
             username = msg.get("name")
             passwd = msg.get("password")
 
             if not username:
-                print "got auth with incomplete credentials, failing."
+                self.logger.info("Auth message has incomplete credentials, failing.")
                 wsutil.send_command_fail(ws, command_id)
                 continue
 
@@ -55,8 +58,9 @@ class GameWebsocketHandler(object):
 
             player_id = self.player_svc.get_player_id(username)
             if player_id is None:
-                print "player does not exist, creating."
+                self.logger.info("Player with name '%s' does not exist, creating.", username)
                 player_id = self.player_svc.create_player(username, passwd)
+                self.logger.info("%s created as user %d.", username, player_id)
                 wsutil.send_command_success(ws, command_id)
                 return player_id
 
@@ -69,12 +73,12 @@ class GameWebsocketHandler(object):
 
     def _handle_queue_connection(self, ws, player_id):
         # add to queue
-        print "checking if user is already on the queue"
+        self.logger.info("Checking if player %d is already on the queue.", player_id)
         if self.queue_backend.is_registered(player_id):
-            print "player already in queue, disconnecting"
+            self.logger.info("Player %d is already in queue, disconnecting.", player_id)
             return
 
-        print "registering player in queue"
+        self.logger.info("registering player %d in queue.", player_id)
         result = self.queue_backend.register(player_id)
 
         # wait for cancel
@@ -82,7 +86,7 @@ class GameWebsocketHandler(object):
             while True:
                 msg = ws.receive()
                 if msg is None or msg == "cancel":
-                    print "Client cancelled, unregistering."
+                    self.logger.info("Client cancelled, unregistering player %d.", player_id)
                     self.queue_backend.unregister(player_id)
                     return
 
@@ -91,13 +95,13 @@ class GameWebsocketHandler(object):
         try:
             result.get()
         except PlayerUnregisteredError:
-            print "Player was unregistered, disconnecting and deleting player."
+            self.logger.info("Player %d was unregistered, disconnecting and deleting player.", player_id)
             self.player_svc.remove_player(player_id)
             return
 
         listen_greenlet.kill()
 
-        print "game found, handing over to game handler"
+        self.logger.info("Game found for player %d, handing over to game handler.", player_id)
 
         self._handle_game_connection(ws, player_id)
 

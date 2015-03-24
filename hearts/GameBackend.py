@@ -1,6 +1,6 @@
 import hearts.model.game as m
 from hearts.game_master import GameMaster
-
+import logging
 
 class GameBackend(object):
     def __init__(self, player_svc):
@@ -9,6 +9,7 @@ class GameBackend(object):
         self._players = {}
         self._player_mapping = {}
         self._player_svc = player_svc
+        self.logger = logging.getLogger(__name__)
 
     def create_game(self, players):
         game_id = self._next_game_id
@@ -49,11 +50,11 @@ class GameBackend(object):
         return player_id in self._player_mapping
 
     def on_game_finished(self, game_id):
-        print "game finished: " + str(game_id)
+        self.logger.info("Game %d has finished.", game_id)
         self._destruct_game(game_id)
 
     def on_game_abandoned(self, game_id):
-        print "game abandoned: " + str(game_id)
+        self.logger.info("Game %d has been abandoned.", game_id)
         self._destruct_game(game_id)
 
     def _destruct_game(self, game_id):
