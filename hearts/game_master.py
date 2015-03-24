@@ -28,7 +28,7 @@ class GameMaster(object):
     def remove_observer(self, observer):
         self._observers.remove(observer)
 
-    def connect(self, ws, player_id, player_index):
+    def connect(self, ws, player_name, player_index):
         if self._players[player_index] is not None:
             raise PlayerAlreadyConnectedError()
 
@@ -36,13 +36,13 @@ class GameMaster(object):
         queue_greenlet = gevent.spawn(_consume_events, ws, queue)
         self._players[player_index] = {
             "ws": ws,
-            "id": player_id,
+            "name": player_name,
             "queue": queue,
         }
 
         wsutil.send_ws_event(ws, "connected_to_game")
 
-        self._on_connect(player_index, player_id)
+        self._on_connect(player_index, player_name)
 
         try:
             while True:
@@ -155,8 +155,8 @@ class GameMaster(object):
             print "received invalid message type: " + action
             wsutil.send_command_fail(ws, command_id)
 
-    def _on_connect(self, player_index, player_id):
-        data = {"index": player_index, "player": player_id}
+    def _on_connect(self, player_index, player_name):
+        data = {"index": player_index, "player": player_name}
         self._broadcast_event_from(player_index, "player_connected", data)
 
     def _on_disconnect(self, player_index):
@@ -193,7 +193,7 @@ class GameMaster(object):
     def _serialize_player(self, player):
         if player is None:
             return None
-        return player["id"]
+        return player["name"]
 
     def _serialize_game_state(self, player_index):
         game = self._game

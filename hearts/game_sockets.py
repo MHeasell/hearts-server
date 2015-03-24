@@ -96,6 +96,7 @@ class GameWebsocketHandler(object):
         self._handle_game_connection(ws, player_id)
 
     def _handle_game_connection(self, ws, player_id):
+        player = self.player_svc.get_player(player_id)
         result = self.game_backend.try_get_game_info(player_id)
 
         # We know we have a game,
@@ -110,4 +111,4 @@ class GameWebsocketHandler(object):
             return
 
         # this will block until connection close
-        game_master.connect(ws, player_id, player_index)
+        game_master.connect(ws, player["name"], player_index)
