@@ -2,6 +2,7 @@ import hearts.model.game as m
 from hearts.game_master import GameMaster
 import logging
 
+
 class GameBackend(object):
     def __init__(self, player_svc):
         self._next_game_id = 1
