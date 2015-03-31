@@ -93,4 +93,9 @@ if __name__ == "__main__":
 
     server = WSGIServer((main_host, main_port), app, handler_class=WebSocketHandler)
 
-    server.serve_forever()
+    logging.info("Server started.")
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        logging.info("Interrupt recieved, server shutting down.")
