@@ -2,6 +2,7 @@ from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 
 import logging
+import time
 
 from flask import Flask, jsonify
 from flask_sockets import Sockets
@@ -23,6 +24,7 @@ config.read('config.ini')
 use_cors = config.getboolean("Main", "use_cors")
 main_host = config.get("Main", "host")
 main_port = config.getint("Main", "port")
+logfile = config.get("Main", "logfile")
 
 app = Flask(__name__)
 
@@ -66,12 +68,26 @@ for code in default_exceptions.iterkeys():
 
 @sockets.route("/play")
 def connect_to_queue(ws):
-    ws_handler.handle_ws(ws)
+    try:
+        ws_handler.handle_ws(ws)
+    except Exception:
+        logging.error("Unhandled exception.", exc_info=True)
 
 
 if __name__ == "__main__":
+
+    formatter = logging.Formatter('%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s', '%Y-%m-%d %H:%M:%S %Z')
+    formatter.converter = time.localtime
+
+    if logfile == "-":
+        handler = logging.StreamHandler()
+    else:
+        handler = logging.FileHandler(logfile)
+
+    handler.setFormatter(formatter)
+
     logging.getLogger().setLevel(logging.INFO)
-    logging.getLogger().addHandler(logging.StreamHandler())
+    logging.getLogger().addHandler(handler)
 
     app.debug = True
 
